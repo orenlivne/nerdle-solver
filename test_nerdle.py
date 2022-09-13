@@ -54,6 +54,12 @@ class TestNerdle:
     def test_generate_all_answers(self):
         assert all(len(answer) == NUM_SLOTS for answer in list(nerdle.all_answers(NUM_SLOTS)))
 
+    def test_num_answers(self):
+        assert len(list(nerdle.all_answers(5))) == 127
+        assert len(list(nerdle.all_answers(6))) == 206
+        assert len(list(nerdle.all_answers(7))) == 6661
+#        assert len(list(nerdle.all_answers(8))) == 17723
+
     def test_solve(self, solver_data):
         run_solver(solver_data, "4*7=28", "54/9=6", 3)
         run_solver(solver_data, "4*3=12", "54/9=6", 3)

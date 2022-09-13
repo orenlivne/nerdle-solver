@@ -152,8 +152,8 @@ def all_answers(num_slots: int) -> List[str]:
     for num_param in range(3, num_slots - 1):
         num_result_slots = num_slots - num_param - 1
         result_range = (0 if num_result_slots == 1 else 10 ** (num_result_slots - 1), 10 ** num_result_slots)
-        print("param_slots", num_param, "X" * num_param + " = " + "X" * num_result_slots,
-              "result_range", result_range)
+        # print("param_slots", num_param, "X" * num_param + " = " + "X" * num_result_slots,
+        #       "result_range", result_range)
         for num_ops in range(1, (num_param - 1) // 2 + 1):
             #print("\t", "num_ops", num_ops)
             op_slots = [
@@ -165,7 +165,7 @@ def all_answers(num_slots: int) -> List[str]:
             for op_slot in op_slots:
                 param_lens = [(n - 1) for n in diff((-1, ) + op_slot + (num_param, ))]
                 #print("\t\t", "op_slot", op_slot, "param_lens", param_lens)
-                print("\t\t", "o".join("X" * n for n in param_lens) + " = " + "X" * (num_slots - num_param - 1))
+                #print("\t\t", "o".join("X" * n for n in param_lens) + " = " + "X" * (num_slots - num_param - 1))
                 for param_values in itertools.product(*(
                         list(itertools.chain.from_iterable(
                             tuple((range(10 ** (n - 1), 10 ** n), "+-*/") for n in param_lens)))[:-1]
