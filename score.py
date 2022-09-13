@@ -1,0 +1,78 @@
+"""Conversion from score to hint array and back."""
+import functools
+import itertools
+from enum import Enum
+
+
+class Hint(Enum):
+    """Hint characters."""
+    INCORRECT = 0       # Nerdle black
+    CORRECT = 1         # Nerdle green
+    MISPLACED = 2       # Nerdle purple
+
+
+HINT_STRING = {Hint.INCORRECT: "-", Hint.CORRECT: "+", Hint.MISPLACED: "?"}
+
+OPERATIONS = "+-*/"
+
+
+def score_guess(guess: str, answer: str) -> int:
+    """
+    Returns the score of a guess.
+
+    :param guess: Guess string.
+    :param answer: Answer string.
+    :return: Hint string, coded as a binary number. First 2 LSBs = first slot hint, etc.
+    """
+    # Coded below uses the assumptions that INCORRECT=0 and there are 2 bits of feedback per hint.
+
+    # iterates through guess and answer lists element-by-element. Whenever it finds a match,
+    # removes the value from a copy of answer so that nothing is double counted.
+    hints = 0
+    answer_no_match = []
+    guess_no_match = []
+    idx_no_match = []  # Indices of 'guess_no_match' characters.
+    for idx, guess_elem, ans_elem in zip(range(len(guess)), guess, answer):
+        if guess_elem == ans_elem:
+            hints |= (Hint.CORRECT.value << (2 * idx))
+        else:
+            guess_no_match.append(guess_elem)
+            answer_no_match.append(ans_elem)
+            idx_no_match.append(idx)
+
+    # Misplaced characters are flagged left-to-right, i.e., if there are two misplaced "1"s in the guess and one
+    # "1" in the answer, the first "1" in the guess will be misplaced, the second incorrect.
+    for idx, guess_elem in zip(idx_no_match, guess_no_match):
+        if guess_elem in answer_no_match:
+            hints |= (Hint.MISPLACED.value << (2 * idx))
+            answer_no_match.remove(guess_elem)
+
+    return hints
+
+
+def hints_to_score(hints):
+    return functools.reduce(lambda x, y: x | y, (hint.value << (2 * idx) for idx, hint in enumerate(hints)), 0)
+
+
+def score_to_hints(score, num_slots):
+    return [Hint(int("".join(x), 2)) for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2)][::-1]
+
+
+def score_to_hint_string(score, num_slots):
+    return "".join(HINT_STRING[Hint(int("".join(x), 2))] for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2))[::-1]
+
+
+def grouper(iterable, n, *, incomplete='fill', fillvalue=None):
+    "Collect data into non-overlapping fixed-length chunks or blocks."
+    # grouper('ABCDEFG', 3, fillvalue='x') --> ABC DEF Gxx
+    # grouper('ABCDEFG', 3, incomplete='strict') --> ABC DEF ValueError
+    # grouper('ABCDEFG', 3, incomplete='ignore') --> ABC DEF
+    args = [iter(iterable)] * n
+    if incomplete == 'fill':
+        return itertools.zip_longest(*args, fillvalue=fillvalue)
+    if incomplete == 'strict':
+        return zip(*args, strict=True)
+    if incomplete == 'ignore':
+        return zip(*args)
+    else:
+        raise ValueError('Expected fill, strict, or ignore')

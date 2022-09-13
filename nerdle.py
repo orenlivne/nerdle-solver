@@ -32,30 +32,18 @@ import collections
 import itertools
 import os
 import pickle
-from enum import Enum
+import shelve
 from typing import Tuple, List
 
-
-class Operator(Enum):
-    """Binary arithmetic operators allowed in a Nerdle expression."""
-    PLUS = "+"
-    MINUS = "-"
-    TIMES = "*"
-    DIVIDE = "/"
-
-
-class Hint(Enum):
-    """Hint characters."""
-    INCORRECT = 0       # Nerdle black
-    CORRECT = 1         # Nerdle green
-    MISPLACED = 2       # Nerdle purple
+import generator
+from score import score_guess, score_to_hint_string, Hint
 
 
 class NerdleData:
     """Encapsulates data structures required for the solver."""
-    def __init__(self, num_slots: int):
+    def __init__(self, num_slots: int, file_name: str):
         self.num_slots = num_slots
-        self.score_dict = create_score_dictionary(set(all_answers(num_slots)))
+        self._file_name = file_name
         self._answers = None
 
     @property
@@ -65,13 +53,49 @@ class NerdleData:
             self._answers = sorted(self.score_dict.keys())
         return self._answers
 
-    def __getstate__(self):
-        return {"num_slots": self.num_slots, "score_dict": self.score_dict}
+    def open(self):
+        return self.__enter__()
 
-    def __setstate__(self, d):
-        self.num_slots = d["num_slots"]
-        self.score_dict = d["score_dict"]
-        self._answers = None
+    def close(self):
+        return self.__exit__(None, None, None)
+
+
+class _NerdleDataDict(NerdleData):
+    """Encapsulates data structures required for the solver. Dictionary implementation -- in-memory dict, loaded from
+    and saved to a pickle file."""
+    def __init__(self, num_slots: int, file_name: str):
+        super(_NerdleDataDict, self).__init__(num_slots, file_name)
+
+    def __enter__(self):
+        if not os.path.exists(self._file_name + ".db"):
+            with open(self._file_name , "wb") as f:
+                self.score_dict = {}
+                create_score_dictionary(set(generator.all_answers(self.num_slots)), self.score_dict)
+                pickle.dump(self.score_dict, f)
+        else:
+            with open(self._file_name, "rb") as f:
+                self.score_dict = pickle.load(f)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+
+class _NerdleDataShelve(NerdleData):
+    """Encapsulates data structures required for the solver. shelve implementation, for large #slots."""
+    def __init__(self, num_slots: int, file_name: str):
+        super(_NerdleDataShelve, self).__init__(num_slots, file_name)
+
+    def __enter__(self):
+        if not os.path.exists(self._file_name + ".db"):
+            self.score_dict = shelve.open(file_name)
+            create_score_dictionary(set(generator.all_answers(self.num_slots)), self.score_dict)
+        else:
+            self.score_dict = shelve.open(self._file_name)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.score_dict.close()
 
 
 class NerdleSolver:
@@ -82,15 +106,16 @@ class NerdleSolver:
     the same 'data' object. Copying the data structures to each solver instance is too time and memory intensive.
     """
     def __init__(self, data: NerdleData):
-        # self._data = data
         # Keeps track of the data.score_dict entries we modify in a solve() call. Typically, there are only few
         # of them.
-        self._score_dict = {key: value.copy() for key, value in data.score_dict.items()}
+        self._data = data
 
-    def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4") -> Tuple[List[str], List[int]]:
+    def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
+              debug: bool = False) -> Tuple[List[str], List[int]]:
         guesses_left = max_guesses
-        score_dict = self._score_dict.copy()
+        score_dict = self._data.score_dict
         answers = set(score_dict.keys())
+        num_slots = len(next(iter(answers)))
         guess_history = []
         hint_history = []
         while guesses_left > 0:
@@ -98,11 +123,6 @@ class NerdleSolver:
                 guess = initial_guess
             else:
                 # Make the next guess.
-                # Restrict possible_score_dict to only include possible answers.
-                score_dict = {
-                    guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
-                    for guess, scores_by_answer_dict in score_dict.items()
-                }
                 # find how often a score appears in scores_by_answer_dict, get max.
                 # Prefer possible guesses over impossible ones.
                 # Sort by score, then by guess possibility.
@@ -111,11 +131,19 @@ class NerdleSolver:
                     for guess, scores_by_answer_dict in score_dict.items()
                 )[-1]
             guess_history.append(guess)
-
-            # reduce amount of possible answers by checking answer against guess and score
+            # reduce amount of possible answers by checking answer against guess and score.
             score = score_guess(guess, answer)
             hint_history.append(score)
             answers = {a for a in answers if score_dict[guess][a] == score}
+            # Restrict possible_score_dict to only include possible answers. This creates a new dictionary,
+            # so it does not override self.score_dict.
+            score_dict = {
+                guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
+                for guess, scores_by_answer_dict in score_dict.items()
+            }
+            if debug:
+                print("guess {} score {} answers {}".format(
+                    guess, score_to_hint_string(score, num_slots), len(answers)))
 
             guesses_left -= 1
             if guess == answer:
@@ -136,109 +164,35 @@ def parse_args():
     return parser.parse_args()
 
 
-def diff(x: Tuple[int]) -> Tuple[int]:
-    return tuple(x[i + 1] - x[i] for i in range(len(x) - 1))
+def create_solver_data(num_slots: int, file_name: str) -> NerdleData:
+    """Creates/load solver data from existing database file. For small files, uses pickle. For large files, uses
+    shelve."""
+    if num_slots <= 6:
+        return _NerdleDataDict(num_slots, file_name + ".db")
+    else:
+        return _NerdleDataShelve(num_slots, file_name)
 
 
-def all_answers(num_slots: int) -> List[str]:
-    """Generates all possible Nerdle answers of size 'num_slots'."""
-    # TODO: prune the combinations we loop over.
-    # TODO: use direct evaluation instead of eval().
-    for num_param in range(3, num_slots - 1):
-        num_result_slots = num_slots - num_param - 1
-        result_range = (0 if num_result_slots == 1 else 10 ** (num_result_slots - 1), 10 ** num_result_slots)
-        # print("param_slots", num_param, "X" * num_param + " = " + "X" * num_result_slots,
-        #       "result_range", result_range)
-        for num_ops in range(1, (num_param - 1) // 2 + 1):
-            #print("\t", "num_ops", num_ops)
-            op_slots = [
-                combination
-                for combination in itertools.combinations(range(1, num_param - 1), num_ops)
-                if len(combination) == 1 or min(diff(combination)) > 1
-                ]
-            #print("\t", op_slots)
-            for op_slot in op_slots:
-                param_lens = [(n - 1) for n in diff((-1, ) + op_slot + (num_param, ))]
-                #print("\t\t", "op_slot", op_slot, "param_lens", param_lens)
-                #print("\t\t", "o".join("X" * n for n in param_lens) + " = " + "X" * (num_slots - num_param - 1))
-                for param_values in itertools.product(*(
-                        list(itertools.chain.from_iterable(
-                            tuple((range(10 ** (n - 1), 10 ** n), "+-*/") for n in param_lens)))[:-1]
-                )):
-                    s = "".join(map(str, param_values))
-                    result = eval(s)
-                    if result_range[0] <= result < result_range[1] and \
-                            (isinstance(result, int) or result.is_integer()):
-                        yield s + "=" + str(int(result))
-
-
-def score_guess(guess: str, answer: str) -> int:
-    """
-    Returns the score of a guess.
-
-    :param guess: Guess string.
-    :param answer: Answer string.
-    :return: Hint string, coded as a binary number. First 2 LSBs = first slot hint, etc.
-    """
-    # Coded below uses the assumptions that INCORRECT=0 and there are 2 bits of feedback per hint.
-
-    # iterates through guess and answer lists element-by-element. Whenever it finds a match,
-    # removes the value from a copy of answer so that nothing is double counted.
-    hints = 0
-    answer_no_match = []
-    guess_no_match = []
-    idx_no_match = []  # Indices of 'guess_no_match' characters.
-    for idx, guess_elem, ans_elem in zip(range(len(guess)), guess, answer):
-        if guess_elem == ans_elem:
-            hints |= (Hint.CORRECT.value << (2 * idx))
-        else:
-            guess_no_match.append(guess_elem)
-            answer_no_match.append(ans_elem)
-            idx_no_match.append(idx)
-
-    # Misplaced characters are flagged left-to-right, i.e., if there are two misplaced "1"s in the guess and one
-    # "1" in the answer, the first "1" in the guess will be misplaced, the second incorrect.
-    for idx, guess_elem in zip(idx_no_match, guess_no_match):
-        if guess_elem in answer_no_match:
-            hints |= (Hint.MISPLACED.value << (2 * idx))
-            answer_no_match.remove(guess_elem)
-
-    return hints
-
-
-def create_score_dictionary(all_guesses):
+def create_score_dictionary(answers, score_dict: shelve.Shelf):
     # default dict avoids storing keys as tuple, saves lookup time
-    score_dict = collections.defaultdict(dict)
-    n = len(all_guesses) ** 2
-    for i, (guess, answer) in enumerate(itertools.product(all_guesses, repeat=2)):
+    n = len(answers) ** 2
+    for i, guess in enumerate(answers):
         if i % 10000000 == 0:
             print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
-        score_dict[guess][answer] = score_guess(guess, answer)
+        score_dict[guess] = {answer: score_guess(guess, answer) for answer in answers}
     return score_dict
-
-
-def get_solver_data(num_slots: int, file_name: str) -> NerdleData:
-    """Creates/load solver data from existing file."""
-    if os.path.exists(file_name):
-        with open(file_name, "rb") as f:
-            return pickle.load(f)
-    else:
-        solver_data = NerdleData(num_slots)
-        with open(file_name, "wb") as f:
-            pickle.dump(solver_data, f)
-        return solver_data
 
 
 if __name__ == "__main__":
     args = parse_args()
 
     # Create/load solver data.
-    solver_data = get_solver_data(args.slots, args.score_dict_file)
+    solver_data = create_solver_data(args.slots, args.score_dict_file)
 
     # if args.mode == "build_dict":
     # elif args.mode == "run":
     print("Slots {} answers {} score_dict size {}".format(
-        solver_data.num_slots, len(solver_data.answers), len(solver_data.score_dict.items())))
+        solver_data.num_slots, len(solver_data.score_dict), len(solver_data.score_dict.items())))
 #
 #     for param_values, result in answers:
 #         print(param_values, result)
