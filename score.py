@@ -3,9 +3,8 @@ import functools
 import itertools
 from enum import Enum
 
-
-class Hint(Enum):
-    """Hint characters."""
+class Hint:
+    """Hint codes."""
     INCORRECT = 0       # Nerdle black
     CORRECT = 1         # Nerdle green
     MISPLACED = 2       # Nerdle purple
@@ -29,29 +28,33 @@ def score_guess(guess: str, answer: str) -> int:
     # iterates through guess and answer lists element-by-element. Whenever it finds a match,
     # removes the value from a copy of answer so that nothing is double counted.
     hints = 0
-    answer_no_match = []
-    guess_no_match = []
-    idx_no_match = []  # Indices of 'guess_no_match' characters.
-    for idx, guess_elem, ans_elem in zip(range(len(guess)), guess, answer):
+    num_slots = len(answer)
+    answer_no_match = [None] * num_slots
+    guess_no_match = [None] * num_slots
+    idx_no_match = [None] * num_slots  # Indices of 'guess_no_match' characters.
+    num_no_match = 0
+    for idx, guess_elem, ans_elem in zip(range(num_slots), guess, answer):
         if guess_elem == ans_elem:
-            hints |= (Hint.CORRECT.value << (2 * idx))
+            hints |= (Hint.CORRECT << (2 * idx))
         else:
-            guess_no_match.append(guess_elem)
-            answer_no_match.append(ans_elem)
-            idx_no_match.append(idx)
+            guess_no_match[num_no_match] = guess_elem
+            answer_no_match[num_no_match] = ans_elem
+            idx_no_match[num_no_match] = idx
+            num_no_match += 1
 
     # Misplaced characters are flagged left-to-right, i.e., if there are two misplaced "1"s in the guess and one
     # "1" in the answer, the first "1" in the guess will be misplaced, the second incorrect.
-    for idx, guess_elem in zip(idx_no_match, guess_no_match):
+    answer_no_match = answer_no_match[:num_no_match]
+    for idx, guess_elem in zip(idx_no_match[:num_no_match], guess_no_match[:num_no_match]):
         if guess_elem in answer_no_match:
-            hints |= (Hint.MISPLACED.value << (2 * idx))
+            hints |= (Hint.MISPLACED << (2 * idx))
             answer_no_match.remove(guess_elem)
 
     return hints
 
 
 def hints_to_score(hints):
-    return functools.reduce(lambda x, y: x | y, (hint.value << (2 * idx) for idx, hint in enumerate(hints)), 0)
+    return functools.reduce(lambda x, y: x | y, (hint << (2 * idx) for idx, hint in enumerate(hints)), 0)
 
 
 def score_to_hints(score, num_slots):

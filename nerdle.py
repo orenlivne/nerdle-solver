@@ -33,7 +33,7 @@ import itertools
 import os
 import pickle
 import shelve
-from typing import Tuple, List
+from typing import Tuple, List, Optional, Set, Dict
 
 import generator
 from score import score_guess, score_to_hint_string, Hint
@@ -45,13 +45,6 @@ class NerdleData:
         self.num_slots = num_slots
         self._file_name = file_name
         self._answers = None
-
-    @property
-    def answers(self):
-        """Returns the list of all answers. Deterministic order (sorted)."""
-        if self._answers is None:
-            self._answers = sorted(self.score_dict.keys())
-        return self._answers
 
     def open(self):
         return self.__enter__()
@@ -65,6 +58,22 @@ class _NerdleDataDict(NerdleData):
     and saved to a pickle file."""
     def __init__(self, num_slots: int, file_name: str):
         super(_NerdleDataDict, self).__init__(num_slots, file_name)
+
+    @property
+    def answers(self) -> List[str]:
+        """Returns the list of all answers. Deterministic order (sorted)."""
+        if self._answers is None:
+            self._answers = sorted(self.score_dict.keys())
+        return self._answers
+
+    def answers_of_score(self, guess: str, answers: List[str], score: int) -> Set[str]:
+        return {a for a in answers if self.score_dict[guess][a] == score}
+
+    def restrict_by_answers(self,  answers: List[str]) -> Dict[str, Dict[str, int]]:
+        return {
+            guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
+            for guess, scores_by_answer_dict in self.score_dict.items()
+        }
 
     def __enter__(self):
         if not os.path.exists(self._file_name + ".db"):
@@ -86,9 +95,25 @@ class _NerdleDataShelve(NerdleData):
     def __init__(self, num_slots: int, file_name: str):
         super(_NerdleDataShelve, self).__init__(num_slots, file_name)
 
+    @property
+    def answers(self):
+        """Returns the list of all answers. Deterministic order (sorted)."""
+        if self._answers is None:
+            self._answers = sorted(self.score_dict.keys())
+        return self._answers
+
+    def answers_of_score(self, guess: str, answers: List[str], score: int) -> Set[str]:
+        return {a for a in answers if self.score_dict[guess][a] == score}
+
+    def restrict_by_answers(self,  answers: List[str]) -> Dict[str, Dict[str, int]]:
+        return {
+            guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
+            for guess, scores_by_answer_dict in self.score_dict.items()
+        }
+
     def __enter__(self):
         if not os.path.exists(self._file_name + ".db"):
-            self.score_dict = shelve.open(file_name)
+            self.score_dict = shelve.open(self._file_name)
             create_score_dictionary(set(generator.all_answers(self.num_slots)), self.score_dict)
         else:
             self.score_dict = shelve.open(self._file_name)
@@ -113,8 +138,8 @@ class NerdleSolver:
     def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
               debug: bool = False) -> Tuple[List[str], List[int]]:
         guesses_left = max_guesses
-        score_dict = self._data.score_dict
-        answers = set(score_dict.keys())
+        score_dict = None
+        answers = set(self._data.answers)
         num_slots = len(next(iter(answers)))
         guess_history = []
         hint_history = []
@@ -134,13 +159,19 @@ class NerdleSolver:
             # reduce amount of possible answers by checking answer against guess and score.
             score = score_guess(guess, answer)
             hint_history.append(score)
-            answers = {a for a in answers if score_dict[guess][a] == score}
             # Restrict possible_score_dict to only include possible answers. This creates a new dictionary,
             # so it does not override self.score_dict.
-            score_dict = {
-                guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
-                for guess, scores_by_answer_dict in score_dict.items()
-            }
+            if score_dict is None:
+                # First guess: fetch restricted dictionary using a query on data to create 'score_dict'.
+                answers = self._data.answers_of_score(guess, answers, score)
+                score_dict = self._data.restrict_by_answers(answers)
+            else:
+                # Subsequent guesses: simple query into the dictionary 'score_dict' to make it smaller.
+                answers = {a for a in answers if score_dict[guess][a] == score}
+                score_dict = {
+                    guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
+                    for guess, scores_by_answer_dict in score_dict.items()
+                }
             if debug:
                 print("guess {} score {} answers {}".format(
                     guess, score_to_hint_string(score, num_slots), len(answers)))
@@ -164,20 +195,20 @@ def parse_args():
     return parser.parse_args()
 
 
-def create_solver_data(num_slots: int, file_name: str) -> NerdleData:
+def create_solver_data(num_slots: int, file_name: str, strategy: Optional[str] = None) -> NerdleData:
     """Creates/load solver data from existing database file. For small files, uses pickle. For large files, uses
     shelve."""
-    if num_slots <= 6:
+    if num_slots <= 6 or strategy == "dict":
         return _NerdleDataDict(num_slots, file_name + ".db")
     else:
         return _NerdleDataShelve(num_slots, file_name)
 
 
-def create_score_dictionary(answers, score_dict: shelve.Shelf):
+def create_score_dictionary(answers, score_dict: shelve.Shelf, print_frequency: int = 100):
     # default dict avoids storing keys as tuple, saves lookup time
-    n = len(answers) ** 2
+    n = len(answers)
     for i, guess in enumerate(answers):
-        if i % 10000000 == 0:
+        if print_frequency > 0 and i % print_frequency == 0:
             print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
         score_dict[guess] = {answer: score_guess(guess, answer) for answer in answers}
     return score_dict
