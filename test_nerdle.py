@@ -55,6 +55,17 @@ class TestNerdle:
         assert all(len(answer) == NUM_SLOTS for answer in list(nerdle.all_answers(NUM_SLOTS)))
 
     def test_solve(self, solver_data):
-        solver = nerdle.NerdleSolver(solver_data)
-        guess_history, hint_history = solver.solve("4*7=28", initial_guess="54/9=6")
-        assert len(guess_history) == 3
+        run_solver(solver_data, "4*7=28", "54/9=6", 3)
+        run_solver(solver_data, "4*3=12", "54/9=6", 3)
+
+    def test_solve_guess_equals_answer(self, solver_data):
+        # Guess = answer ==> one guess for a solve.
+        run_solver(solver_data, "54/9=6", "54/9=6", 1)
+
+
+def run_solver(solver_data, answer, initial_guess, num_guesses):
+    solver = nerdle.NerdleSolver(solver_data)
+    guess_history, hint_history = solver.solve(answer, initial_guess=initial_guess)
+    assert guess_history is not None
+    assert len(guess_history) == num_guesses
+    assert guess_history[-1] == answer

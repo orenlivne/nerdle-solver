@@ -56,10 +56,14 @@ class NerdleData:
     def __init__(self, num_slots: int):
         self.num_slots = num_slots
         self.score_dict = create_score_dictionary(set(all_answers(num_slots)))
+        self._answers = None
 
     @property
     def answers(self):
-        return self.score_dict.keys()
+        """Returns the list of all answers. Deterministic order (sorted)."""
+        if self._answers is None:
+            self._answers = sorted(self.score_dict.keys())
+        return self._answers
 
     def __getstate__(self):
         return {"num_slots": self.num_slots, "score_dict": self.score_dict}
@@ -67,6 +71,7 @@ class NerdleData:
     def __setstate__(self, d):
         self.num_slots = d["num_slots"]
         self.score_dict = d["score_dict"]
+        self._answers = None
 
 
 class NerdleSolver:
@@ -77,38 +82,32 @@ class NerdleSolver:
     the same 'data' object. Copying the data structures to each solver instance is too time and memory intensive.
     """
     def __init__(self, data: NerdleData):
-        self._data = data
+        #self._data = data
         # Keeps track of the data.score_dict entries we modify in a solve() call. Typically, there are only few
         # of them.
-        self._score_dict_backup = {}
+        self._score_dict = {key: value.copy() for key, value in data.score_dict.items()}
 
     def make_guess(self, answers: List[str]) -> str:
         guesses_to_try = []
-        for guess, scores_by_answer_dict in self._data.score_dict.items():
-            # Reduce possible_score_dict to only include possible answers.
-            self._score_dict_backup[guess] = self._data.score_dict[guess]
-            scores_by_answer_dict = {answer: score for answer, score in scores_by_answer_dict.items()
-                                     if answer in answers}
-            self._data.score_dict[guess] = scores_by_answer_dict
+        for guess, scores_by_answer_dict in self._score_dict.items():
+            # Restrict possible_score_dict to only include possible answers.
+            self._score_dict[guess] = {
+                answer: score for answer, score in scores_by_answer_dict.items() if answer in answers
+            }
 
             # find how often a score appears in scores_by_answer_dict, get max
             possibilities_per_score = collections.Counter(scores_by_answer_dict.values())
             worst_case = max(possibilities_per_score.values())
 
-            # prefer possible guesses over impossible ones
-            impossible_guess = guess not in answers
+            # prefer possible guesses over impossible ones.
+            guesses_to_try.append((worst_case, guess not in answers, guess))
 
-            guesses_to_try.append((worst_case, impossible_guess, guess))
-
+        # Sort by score, then by guess possibility.
         return min(guesses_to_try)[-1]
-
-    def restore_data(self):
-        for guess, entry in self._score_dict_backup.items():
-            self._data.score_dict[guess] = entry
 
     def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4") -> Tuple[List[str], List[int]]:
         guesses_left = max_guesses
-        possible_answers = set(self._data.answers)
+        possible_answers = set(self._score_dict.keys())
         guess_history = []
         hint_history = []
         while guesses_left > 0:
@@ -121,15 +120,13 @@ class NerdleSolver:
             # reduce amount of possible answers by checking answer against guess and score
             score = score_guess(guess, answer)
             hint_history.append(score)
-            possible_answers = {a for a in possible_answers if self._data.score_dict[guess][a] == score}
+            possible_answers = {a for a in possible_answers if self._score_dict[guess][a] == score}
 
             guesses_left -= 1
             if guess == answer:
-                self.restore_data()
                 return guess_history, hint_history
 
         # Failed to solve within the allotted number of guesses.
-        self.restore_data()
         return None, None
 
 
