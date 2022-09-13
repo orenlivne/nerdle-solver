@@ -89,16 +89,16 @@ class NerdleSolver:
 
     def make_guess(self, answers: List[str]) -> str:
         guesses_to_try = []
+        # Restrict possible_score_dict to only include possible answers.
+        self._score_dict = {
+            guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
+            for guess, scores_by_answer_dict in self._score_dict.items()
+        }
+
         for guess, scores_by_answer_dict in self._score_dict.items():
-            # Restrict possible_score_dict to only include possible answers.
-            self._score_dict[guess] = {
-                answer: score for answer, score in scores_by_answer_dict.items() if answer in answers
-            }
-
             # find how often a score appears in scores_by_answer_dict, get max
-            possibilities_per_score = collections.Counter(scores_by_answer_dict.values())
+            possibilities_per_score = collections.Counter(self._score_dict[guess].values())
             worst_case = max(possibilities_per_score.values())
-
             # prefer possible guesses over impossible ones.
             guesses_to_try.append((worst_case, guess not in answers, guess))
 

@@ -62,7 +62,8 @@ class TestNerdle:
 
     def test_solve(self, solver_data):
         run_solver(solver_data, "4*7=28", "54/9=6", 3)
-        run_solver(solver_data, "4*3=12", "54/9=6", 3)
+        run_solver(solver_data, "4*3=12", "54/9=6", 4)
+        run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
     def test_solve_guess_equals_answer(self, solver_data):
         # Guess = answer ==> one guess for a solve.
