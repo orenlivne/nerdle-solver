@@ -82,45 +82,40 @@ class NerdleSolver:
     the same 'data' object. Copying the data structures to each solver instance is too time and memory intensive.
     """
     def __init__(self, data: NerdleData):
-        #self._data = data
+        # self._data = data
         # Keeps track of the data.score_dict entries we modify in a solve() call. Typically, there are only few
         # of them.
         self._score_dict = {key: value.copy() for key, value in data.score_dict.items()}
 
-    def make_guess(self, answers: List[str]) -> str:
-        guesses_to_try = []
-        # Restrict possible_score_dict to only include possible answers.
-        self._score_dict = {
-            guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
-            for guess, scores_by_answer_dict in self._score_dict.items()
-        }
-
-        for guess, scores_by_answer_dict in self._score_dict.items():
-            # find how often a score appears in scores_by_answer_dict, get max
-            possibilities_per_score = collections.Counter(self._score_dict[guess].values())
-            worst_case = max(possibilities_per_score.values())
-            # prefer possible guesses over impossible ones.
-            guesses_to_try.append((worst_case, guess not in answers, guess))
-
-        # Sort by score, then by guess possibility.
-        return min(guesses_to_try)[-1]
-
     def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4") -> Tuple[List[str], List[int]]:
         guesses_left = max_guesses
-        possible_answers = set(self._score_dict.keys())
+        score_dict = self._score_dict.copy()
+        answers = set(score_dict.keys())
         guess_history = []
         hint_history = []
         while guesses_left > 0:
             if guesses_left == max_guesses:
                 guess = initial_guess
             else:
-                guess = self.make_guess(possible_answers)
+                # Make the next guess.
+                # Restrict possible_score_dict to only include possible answers.
+                score_dict = {
+                    guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
+                    for guess, scores_by_answer_dict in score_dict.items()
+                }
+                # find how often a score appears in scores_by_answer_dict, get max.
+                # Prefer possible guesses over impossible ones.
+                # Sort by score, then by guess possibility.
+                guess = min(
+                    (max(collections.Counter(scores_by_answer_dict.values()).values()), guess not in answers, guess)
+                    for guess, scores_by_answer_dict in score_dict.items()
+                )[-1]
             guess_history.append(guess)
 
             # reduce amount of possible answers by checking answer against guess and score
             score = score_guess(guess, answer)
             hint_history.append(score)
-            possible_answers = {a for a in possible_answers if self._score_dict[guess][a] == score}
+            answers = {a for a in answers if score_dict[guess][a] == score}
 
             guesses_left -= 1
             if guess == answer:
