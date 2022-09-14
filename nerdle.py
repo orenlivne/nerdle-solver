@@ -86,8 +86,18 @@ class _NerdleDataDict(NerdleData):
         return self._answers
 
     @property
+    def all_keys(self) -> List[str]:
+        return self._answers
+
+    @property
     def initial_answers(self) -> Set[str]:
         return set(self._answers)
+
+    def key(self, guess: str) -> str:
+        return guess
+
+    def value(self, guess_key: str) -> str:
+        return guess_key
 
     def answers_of_score(self, guess: str, answers: Set[str], score: int) -> Set[str]:
         return {a for a in answers if self.score_db[guess][a] == score}
@@ -110,7 +120,7 @@ class _NerdleDataMatrix(NerdleData):
         super(_NerdleDataMatrix, self).__init__(num_slots, file_name)
         if overwrite or not os.path.exists(self._file_name):
             with open(self._file_name , "wb") as f:
-                self.answers = sorted(generator.all_answers(self.num_slots))
+                self.answers = np.array(sorted(generator.all_answers(self.num_slots)))
                 if max_answers is not None:
                     self.answers = self.answers[:max_answers]
                 self.score_db = _NerdleDataMatrix._create_score_database(self.answers)
@@ -125,14 +135,17 @@ class _NerdleDataMatrix(NerdleData):
     def _create_score_database(answers):
         # default dict avoids storing keys as tuple, saves lookup time
         n = len(answers)
-        num_slots = len(next(iter(answers)))
         print_frequency = n // 20
         score_db = np.zeros((n, n), dtype=int)
         for i, guess in enumerate(answers):
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
-            score_db[i] = [score_guess(guess, answer) for answer in answers]
+            score_db[i] = [score_guess(str(guess), str(answer)) for answer in answers]
         return score_db
+
+    @property
+    def all_keys(self) -> List[int]:
+        return np.arange(len(self._answers), dtype=int)
 
     @property
     def initial_answers(self) -> np.ndarray:
@@ -142,7 +155,9 @@ class _NerdleDataMatrix(NerdleData):
         return self.score_db[guess][answers] == score
 
     def restrict_by_answers(self,  answer_index: List[int]):
-        return self.score_db[:, answer_index], np.full((self.score_db.shape[1], ), True, dtype=bool)
+        score_db = self.score_db[:, answer_index]
+        answer_index = np.full((self.score_db.shape[1], ), True, dtype=bool)
+        return score_db, answer_index
 
     def score_values(self, score_db):
         return score_db
@@ -158,6 +173,7 @@ class NerdleSolver:
         # A working copy of data.score_db entries modified within solve().
         self._score_db = data.score_db
         self._all_answers = self._data.answers
+        self._all_keys = self._data.all_keys
         self._answers = self._data.initial_answers
         self._num_slots = len(next(iter(self._answers)))
         self._all_correct = hints_to_score([Hint.CORRECT] * self._num_slots)
@@ -173,6 +189,7 @@ class NerdleSolver:
         hint_history = []
         answer_size_history = []
         guess = initial_guess
+        guess_key = self._data.key(guess)
         guess_history = [guess]
 
         while guesses_left > 0:
@@ -180,7 +197,8 @@ class NerdleSolver:
             if debug:
                 print("--> guess {}".format(guess))
             score = hint_generator(guess)
-            guess = self.make_guess(guess, score)
+            guess_key = self.make_guess(guess_key, score)
+            guess = self._data.value(guess_key)
             if debug:
                 print("score {} {} answers {}".format(
                     score_to_hint_string(score, self._num_slots), score, len(self._answers)))
@@ -209,8 +227,10 @@ class NerdleSolver:
         # TODO: a possible improvement is to weight the counts by bigram conditional probabilities (how likely a
         #  character is to appear after another in the current answer set).
         return min(
-            (max(collections.Counter(self._data.score_values(self._score_db[guess])).values()), guess not in self._answers, guess)
-            for guess in self._all_answers
+            (max(collections.Counter(self._data.score_values(self._score_db[guess_key])).values()),
+             guess_key not in self._answers,
+             guess_key)
+            for guess_key in self._all_keys
         )[-1]
 
 
