@@ -7,7 +7,7 @@ import pytest
 
 import generator
 import nerdle
-import score
+import score as s
 from nerdle import NerdleData
 from score import Hint, hints_to_score, hint_string_to_score
 
@@ -23,27 +23,29 @@ def solver_data():
 
 class TestNerdle:
     def test_score(self):
-        assert score.score_guess("54/9=6", "4*7=28") == \
+        scorer = s.Scorer(6)
+        assert scorer("54/9=6", "4*7=28") == \
                hints_to_score((Hint.INCORRECT, Hint.MISPLACED, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.MISPLACED, Hint.INCORRECT))
 
     def test_score_8slots(self):
-        assert score.score_guess("10-43=66", "12+34=56") == \
+        scorer = s.Scorer(8)
+        assert scorer("10-43=66", "12+34=56") == \
                hints_to_score((Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.MISPLACED,
                                Hint.MISPLACED, Hint.CORRECT, Hint.INCORRECT, Hint.CORRECT))
 
         # Repeated digit. First occurrence is correct.
-        assert score.score_guess("10-84=46", "12+34=56") == \
+        assert scorer("10-84=46", "12+34=56") == \
                hints_to_score((Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.CORRECT, Hint.CORRECT, Hint.INCORRECT, Hint.CORRECT))
 
         # Repeated digit. First occurrence is misplaced.
-        assert score.score_guess("10-43=46", "12+34=56") == \
+        assert scorer("10-43=46", "12+34=56") == \
                hints_to_score((Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.MISPLACED,
                                Hint.MISPLACED, Hint.CORRECT, Hint.INCORRECT, Hint.CORRECT))
 
         # Repeated digit where second occurrence is the correct one. First one should be incorrect then.
-        assert score.score_guess("40-84=77", "12+34=56") == \
+        assert scorer("40-84=77", "12+34=56") == \
                hints_to_score((Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.CORRECT, Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT))
 
@@ -83,7 +85,7 @@ class TestNerdle:
             "?+-+??",
             "++++++",
         ]
-        hint_generator = score.FileHintGenerator(io.StringIO("\n".join(hints)))
+        hint_generator = s.FileHintGenerator(io.StringIO("\n".join(hints)))
 
         solver = nerdle.NerdleSolver(solver_data)
         guess_history, hint_history, answer_size_history = solver.solve_adversary(hint_generator.__call__,

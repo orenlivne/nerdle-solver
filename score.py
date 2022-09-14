@@ -4,7 +4,7 @@ import itertools
 from enum import Enum
 
 class Hint:
-    """Hint codes."""
+    """Hint codes. A hint takes up 2 bits in the integer score."""
     INCORRECT = 0       # Nerdle black
     CORRECT = 1         # Nerdle green
     MISPLACED = 2       # Nerdle purple
@@ -17,42 +17,48 @@ STRING_TO_HINT = {v: k for k, v in HINT_STRING.items()}
 OPERATIONS = "+-*/"
 
 
-def score_guess(guess: str, answer: str) -> int:
-    """
-    Returns the score of a guess.
+class Scorer:
+    """Scores guesses. A score is an encoded int, where each 2 bits represent a hint (first LSBs = first slot, etc.)."""
+    def __init__(self, num_slots: 8):
+        self._num_slots = num_slots
+        # Pre-allocate and reuse arrays.
+        self._answer_no_match = [None] * num_slots
+        self._guess_no_match = [None] * num_slots
+        self._idx_no_match = [None] * num_slots  # Indices of 'guess_no_match' characters.
 
-    :param guess: Guess string.
-    :param answer: Answer string.
-    :return: Hint string, coded as a binary number. First 2 LSBs = first slot hint, etc.
-    """
-    # Coded below uses the assumptions that INCORRECT=0 and there are 2 bits of feedback per hint.
+    def __call__(self, guess: str, answer: str) -> int:
+        # TODO: speed up via dynamic programming (since scoring is done left-to-right) + memoization? Cython?
+        """
+        Returns the score of a guess.
 
-    # iterates through guess and answer lists element-by-element. Whenever it finds a match,
-    # removes the value from a copy of answer so that nothing is double counted.
-    hints = 0
-    num_slots = len(answer)
-    answer_no_match = [None] * num_slots
-    guess_no_match = [None] * num_slots
-    idx_no_match = [None] * num_slots  # Indices of 'guess_no_match' characters.
-    num_no_match = 0
-    for idx, guess_elem, ans_elem in zip(range(num_slots), guess, answer):
-        if guess_elem == ans_elem:
-            hints |= (Hint.CORRECT << (2 * idx))
-        else:
-            guess_no_match[num_no_match] = guess_elem
-            answer_no_match[num_no_match] = ans_elem
-            idx_no_match[num_no_match] = idx
-            num_no_match += 1
+        :param guess: Guess string.
+        :param answer: Answer string.
+        :return: Hint string, coded as a binary number. First 2 LSBs = first slot hint, etc.
+        """
+        # Coded below uses the assumptions that INCORRECT=0 and there are 2 bits of feedback per hint.
 
-    # Misplaced characters are flagged left-to-right, i.e., if there are two misplaced "1"s in the guess and one
-    # "1" in the answer, the first "1" in the guess will be misplaced, the second incorrect.
-    answer_no_match = answer_no_match[:num_no_match]
-    for idx, guess_elem in zip(idx_no_match[:num_no_match], guess_no_match[:num_no_match]):
-        if guess_elem in answer_no_match:
-            hints |= (Hint.MISPLACED << (2 * idx))
-            answer_no_match.remove(guess_elem)
+        # iterates through guess and answer lists element-by-element. Whenever it finds a match,
+        # removes the value from a copy of answer so that nothing is double counted.
+        hints = 0
+        num_no_match = 0
+        for idx, guess_elem, ans_elem in zip(range(self._num_slots), guess, answer):
+            if guess_elem == ans_elem:
+                hints |= (Hint.CORRECT << (2 * idx))
+            else:
+                self._guess_no_match[num_no_match] = guess_elem
+                self._answer_no_match[num_no_match] = ans_elem
+                self._idx_no_match[num_no_match] = idx
+                num_no_match += 1
 
-    return hints
+        # Misplaced characters are flagged left-to-right, i.e., if there are two misplaced "1"s in the guess and one
+        # "1" in the answer, the first "1" in the guess will be misplaced, the second incorrect.
+        answer_no_match = self._answer_no_match[:num_no_match]
+        for idx, guess_elem in zip(self._idx_no_match[:num_no_match], self._guess_no_match[:num_no_match]):
+            if guess_elem in answer_no_match:
+                hints |= (Hint.MISPLACED << (2 * idx))
+                answer_no_match.remove(guess_elem)
+
+        return hints
 
 
 def hints_to_score(hints):

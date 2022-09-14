@@ -30,13 +30,14 @@ References:
 import argparse
 import collections
 import itertools
-import sys
+import numpy as np
 import os
 import pickle
+import sys
 from typing import Tuple, List, Optional, Set, Dict
 
 import generator
-from score import score_guess, score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator
+from score import Scorer, score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator
 
 
 class NerdleData:
@@ -50,9 +51,9 @@ class NerdleData:
 class _NerdleDataDict(NerdleData):
     """Encapsulates data structures required for the solver. Dictionary implementation -- in-memory dict, loaded from
     and saved to a pickle file."""
-    def __init__(self, num_slots: int, file_name: str):
+    def __init__(self, num_slots: int, file_name: str, overwrite: bool = False):
         super(_NerdleDataDict, self).__init__(num_slots, file_name)
-        if not os.path.exists(self._file_name):
+        if overwrite or not os.path.exists(self._file_name):
             with open(self._file_name , "wb") as f:
                 self.score_db = _NerdleDataDict._create_score_database(set(generator.all_answers(self.num_slots)))
                 pickle.dump(self.score_db, f)
@@ -66,10 +67,11 @@ class _NerdleDataDict(NerdleData):
         n = len(answers)
         print_frequency = n // 20
         score_db = {}
+        scorer = Scorer(self.num_slots)
         for i, guess in enumerate(answers):
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
-            score_db[guess] = {answer: score_guess(guess, answer) for answer in answers}
+            score_db[guess] = {answer: scorer(guess, answer) for answer in answers}
         return score_db
 
     @property
@@ -92,42 +94,35 @@ class _NerdleDataDict(NerdleData):
 class _NerdleDataMatrix(NerdleData):
     """Encapsulates data structures required for the solver. Matrix implementation -- in-memory numpu array, loaded from
     and saved to a h5py file."""
-    def __init__(self, num_slots: int, file_name: str):
+    def __init__(self, num_slots: int, file_name: str, overwrite: bool = False):
         super(_NerdleDataMatrix, self).__init__(num_slots, file_name)
-        if not os.path.exists(self._file_name):
+        if overwrite or not os.path.exists(self._file_name):
             with open(self._file_name , "wb") as f:
-                self.score_db = _NerdleDataMatrix._create_score_database(set(generator.all_answers(self.num_slots)))
+                self.answers = sorted(generator.all_answers(self.num_slots))
+                self.score_db = _NerdleDataMatrix._create_score_database(self.answers)
                 pickle.dump(self.score_db, f)
         else:
             with open(self._file_name, "rb") as f:
                 self.score_db = pickle.load(f)
 
     @staticmethod
-    def _create_score_database(answers, score_db):
+    def _create_score_database(answers):
         # default dict avoids storing keys as tuple, saves lookup time
         n = len(answers)
         print_frequency = n // 20
+        score_db = np.zeros((n, n), dtype=int)
+        scorer = Scorer(self.num_slots)
         for i, guess in enumerate(answers):
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
-            score_db[guess] = {answer: score_guess(guess, answer) for answer in answers}
+            score_db[i] = [scorer(guess, answer) for answer in answers]
         return score_db
 
-    @property
-    def answers(self) -> List[str]:
-        """Returns the list of all answers. Deterministic order (sorted)."""
-        if self._answers is None:
-            self._answers = sorted(self.score_db.keys())
-        return self._answers
+    def answers_of_score(self, guess: str, answers: List[str], score: int) -> List[str]:
+        return answers[self.score_db[guess][answers] == score]
 
-    def answers_of_score(self, guess: str, answers: Set[str], score: int) -> Set[str]:
-        return {a for a in answers if self.score_db[guess][a] == score}
-
-    def restrict_by_answers(self,  answers: Set[str]) -> Dict[str, Dict[str, int]]:
-        return {
-            guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
-            for guess, scores_by_answer_dict in self.score_db.items()
-        }
+    def restrict_by_answers(self,  answer_index: List[int]) -> np.ndarray:
+        return self.score_db[:, answers]
 
 
 class NerdleSolver:
@@ -145,7 +140,8 @@ class NerdleSolver:
 
     def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
               debug: bool = False) -> Tuple[List[str], List[int], List[int]]:
-        return self.solve_adversary(lambda guess: score_guess(guess, answer),
+        scorer = Scorer(self._num_slots)
+        return self.solve_adversary(lambda guess: scorer(guess, answer),
                                     max_guesses=max_guesses, initial_guess=initial_guess, debug=debug)
 
     def solve_adversary(self, hint_generator, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
@@ -198,18 +194,18 @@ class NerdleSolver:
 def parse_args():
     """Defines and parses command-line flags."""
     parser = argparse.ArgumentParser(description="Nerdle Solver.")
-    parser.add_argument("--slots", default=6, type=int, help="Number of slots in answer.")
+    parser.add_argument("--num_slots", default=6, type=int, help="Number of slots in answer.")
     parser.add_argument("--score_db", default="nerdle.db", help="Path to score database file name.")
     return parser.parse_args()
 
 
-def create_solver_data(num_slots: int, file_name: str, strategy: str = "dict") -> NerdleData:
+def create_solver_data(num_slots: int, file_name: str, strategy: str = "dict", overwrite: bool = False) -> NerdleData:
     """Creates/load solver data from existing database file. For small files, uses pickle. For large files, uses
     SQLite."""
     if strategy == "dict":
-        return _NerdleDataDict(num_slots, file_name)
+        return _NerdleDataDict(num_slots, file_name, overwrite=overwrite)
     elif strategy == "matrix":
-        return _NerdleDataMatrix(num_slots, file_name)
+        return _NerdleDataMatrix(num_slots, file_name, overwrite=overwrite)
     else:
         raise ValueError("Unsupported NerdleData strategy {}".format(strategy))
 
@@ -218,7 +214,7 @@ if __name__ == "__main__":
     args = parse_args()
 
     # Create/load solver data.
-    solver_data = create_solver_data(args.slots, args.score_db)
+    solver_data = create_solver_data(args.num_slots, args.score_db)
 
     print("Loaded: slots {} answers {} score_db size {}".format(
         solver_data.num_slots, len(solver_data.score_db), len(solver_data.score_db.items())))
