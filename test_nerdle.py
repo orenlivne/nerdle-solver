@@ -8,6 +8,7 @@ import pytest
 import generator
 import nerdle
 import score as s
+import score_guess as sg
 from nerdle import NerdleData
 from score import Hint, hints_to_score, hint_string_to_score
 
@@ -22,30 +23,28 @@ def solver_data():
 
 
 class TestNerdle:
-    def test_score(self):
-        scorer = s.Scorer(6)
-        assert scorer("54/9=6", "4*7=28") == \
+    def test_score_cython(self):
+        assert sg.score_guess("54/9=6", "4*7=28") == \
                hints_to_score((Hint.INCORRECT, Hint.MISPLACED, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.MISPLACED, Hint.INCORRECT))
 
     def test_score_8slots(self):
-        scorer = s.Scorer(8)
-        assert scorer("10-43=66", "12+34=56") == \
+        assert sg.score_guess("10-43=66", "12+34=56") == \
                hints_to_score((Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.MISPLACED,
                                Hint.MISPLACED, Hint.CORRECT, Hint.INCORRECT, Hint.CORRECT))
 
         # Repeated digit. First occurrence is correct.
-        assert scorer("10-84=46", "12+34=56") == \
+        assert sg.score_guess("10-84=46", "12+34=56") == \
                hints_to_score((Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.CORRECT, Hint.CORRECT, Hint.INCORRECT, Hint.CORRECT))
 
         # Repeated digit. First occurrence is misplaced.
-        assert scorer("10-43=46", "12+34=56") == \
+        assert sg.score_guess("10-43=46", "12+34=56") == \
                hints_to_score((Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.MISPLACED,
                                Hint.MISPLACED, Hint.CORRECT, Hint.INCORRECT, Hint.CORRECT))
 
         # Repeated digit where second occurrence is the correct one. First one should be incorrect then.
-        assert scorer("40-84=77", "12+34=56") == \
+        assert sg.score_guess("40-84=77", "12+34=56") == \
                hints_to_score((Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.CORRECT, Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT))
 
