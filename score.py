@@ -58,11 +58,11 @@ def hints_to_score(hints):
 
 
 def score_to_hints(score, num_slots):
-    return [Hint(int("".join(x), 2)) for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2)][::-1]
+    return [int("".join(x), 2) for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2)][::-1]
 
 
 def score_to_hint_string(score, num_slots):
-    return "".join(HINT_STRING[Hint(int("".join(x), 2))] for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2))[::-1]
+    return "".join(HINT_STRING[int("".join(x), 2)] for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2))[::-1]
 
 
 def grouper(iterable, n, *, incomplete='fill', fillvalue=None):

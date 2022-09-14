@@ -32,7 +32,7 @@ import collections
 import itertools
 import os
 import pickle
-import shelve
+import sqlite3
 from typing import Tuple, List, Optional, Set, Dict
 
 import generator
@@ -66,10 +66,10 @@ class _NerdleDataDict(NerdleData):
             self._answers = sorted(self.score_dict.keys())
         return self._answers
 
-    def answers_of_score(self, guess: str, answers: List[str], score: int) -> Set[str]:
+    def answers_of_score(self, guess: str, answers: Set[str], score: int) -> Set[str]:
         return {a for a in answers if self.score_dict[guess][a] == score}
 
-    def restrict_by_answers(self,  answers: List[str]) -> Dict[str, Dict[str, int]]:
+    def restrict_by_answers(self,  answers: Set[str]) -> Dict[str, Dict[str, int]]:
         return {
             guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
             for guess, scores_by_answer_dict in self.score_dict.items()
@@ -90,37 +90,70 @@ class _NerdleDataDict(NerdleData):
         pass
 
 
-class _NerdleDataShelve(NerdleData):
-    """Encapsulates data structures required for the solver. shelve implementation, for large #slots."""
+class _NerdleDataSqlite(NerdleData):
+    """Encapsulates data structures required for the solver. SQLite database implementation, for large #slots."""
     def __init__(self, num_slots: int, file_name: str):
-        super(_NerdleDataShelve, self).__init__(num_slots, file_name)
+        super(_NerdleDataSqlite, self).__init__(num_slots, file_name)
 
     @property
     def answers(self):
         """Returns the list of all answers. Deterministic order (sorted)."""
         if self._answers is None:
-            self._answers = sorted(self.score_dict.keys())
+            with sqlite3.connect(self._file_name + ".db") as conn:
+                c = conn.cursor()
+                self._answers = sorted(record[0] for record in c.execute("select distinct guess from score"))
         return self._answers
 
-    def answers_of_score(self, guess: str, answers: List[str], score: int) -> Set[str]:
-        return {a for a in answers if self.score_dict[guess][a] == score}
+    def answers_of_score(self, guess: str, answers: Set[str], score: int) -> Set[str]:
+        with sqlite3.connect(self._file_name + ".db") as conn:
+            c = conn.cursor()
+            print("answers_of_score")
+            #print(guess, score, answers)
+            answers = set(record[0] for record in
+                          c.execute("select answer from score where guess = ? and score = ? and answer in (%s)" %
+                                    ','.join('?' * len(answers)), (guess, score) + tuple(answers)))
+            return answers
 
-    def restrict_by_answers(self,  answers: List[str]) -> Dict[str, Dict[str, int]]:
-        return {
-            guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
-            for guess, scores_by_answer_dict in self.score_dict.items()
-        }
+    def restrict_by_answers(self,  answers: Set[str]) -> Dict[str, Dict[str, int]]:
+        with sqlite3.connect(self._file_name + ".db") as conn:
+            c = conn.cursor()
+            print("restrict_by_answers")
+            print(answers)
+            print("select guess, score, answer from score where answer in (%s)" %
+                                ','.join('?' * len(answers)), tuple(answers))
+            records = c.execute("select guess, score, answer from score where answer in (%s)" %
+                                ','.join('?' * len(answers)), tuple(answers))
+            score_dict = collections.defaultdict(dict)
+            for guess, answer, score in records:
+                score_dict[guess][answer] = score
+            return score_dict
 
     def __enter__(self):
         if not os.path.exists(self._file_name + ".db"):
-            self.score_dict = shelve.open(self._file_name)
-            create_score_dictionary(set(generator.all_answers(self.num_slots)), self.score_dict)
-        else:
-            self.score_dict = shelve.open(self._file_name)
+            conn = sqlite3.connect(self._file_name + ".db")
+            c = conn.cursor()
+            c.execute('''CREATE TABLE IF NOT EXISTS score (
+                guess string, answer string not null, 
+                score int not null
+            )''')
+            c.execute('''CREATE INDEX if not exists idx_score_guess ON score (guess);''')
+            c.execute('''CREATE INDEX if not exists idx_score_answer ON score (answer);''')
+
+            # default dict avoids storing keys as tuple, saves lookup time
+            answers = set(generator.all_answers(self.num_slots))
+            n = len(answers)
+            print_frequency = n // 20
+            for i, guess in enumerate(answers):
+                if print_frequency > 0 and i % print_frequency == 0:
+                    print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
+                c.executemany("insert into score(guess, answer, score) values (?,?,?)",
+                              [(guess, answer, score_guess(guess, answer)) for answer in answers])
+            conn.commit()
+            conn.close()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.score_dict.close()
+        pass
 
 
 class NerdleSolver:
@@ -136,13 +169,14 @@ class NerdleSolver:
         self._data = data
 
     def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
-              debug: bool = False) -> Tuple[List[str], List[int]]:
+              debug: bool = False) -> Tuple[List[str], List[int], List[int]]:
         guesses_left = max_guesses
         score_dict = None
         answers = set(self._data.answers)
         num_slots = len(next(iter(answers)))
         guess_history = []
         hint_history = []
+        answer_size_history = []
         while guesses_left > 0:
             if guesses_left == max_guesses:
                 guess = initial_guess
@@ -175,13 +209,14 @@ class NerdleSolver:
             if debug:
                 print("guess {} score {} answers {}".format(
                     guess, score_to_hint_string(score, num_slots), len(answers)))
+            answer_size_history.append(len(answers))
 
             guesses_left -= 1
             if guess == answer:
-                return guess_history, hint_history
+                return guess_history, hint_history, answer_size_history
 
         # Failed to solve within the allotted number of guesses.
-        return None, None
+        return None, None, None
 
 
 def parse_args():
@@ -197,14 +232,14 @@ def parse_args():
 
 def create_solver_data(num_slots: int, file_name: str, strategy: Optional[str] = None) -> NerdleData:
     """Creates/load solver data from existing database file. For small files, uses pickle. For large files, uses
-    shelve."""
-    if num_slots <= 6 or strategy == "dict":
+    SQLite."""
+    if num_slots <= 6 and strategy == "dict":
         return _NerdleDataDict(num_slots, file_name + ".db")
     else:
-        return _NerdleDataShelve(num_slots, file_name)
+        return _NerdleDataSqlite(num_slots, file_name)
 
 
-def create_score_dictionary(answers, score_dict: shelve.Shelf, print_frequency: int = 100):
+def create_score_dictionary(answers, score_dict, print_frequency: int = 100):
     # default dict avoids storing keys as tuple, saves lookup time
     n = len(answers)
     for i, guess in enumerate(answers):

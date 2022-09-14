@@ -68,10 +68,20 @@ class TestNerdle:
         with nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE) as solver_data:
             run_solver(solver_data, "54/9=6", "54/9=6", 1)
 
+    def test_solve_guess_dict(self):
+        # Guess = answer ==> one guess for a solve.
+        with nerdle.create_solver_data(NUM_SLOTS, "mini_nerdle", strategy="dict") as solver_data:
+            run_solver(solver_data, "4*3=12", "10-5=5", 3)
+
+    def test_solve_guess_sqlite(self):
+        # Guess = answer ==> one guess for a solve.
+        with nerdle.create_solver_data(NUM_SLOTS, "mini_nerdle_sqlite", strategy="sqlite") as solver_data:
+            run_solver(solver_data, "4*3=12", "10-5=5", 3)
+
 
 def run_solver(solver_data, answer, initial_guess, num_guesses):
     solver = nerdle.NerdleSolver(solver_data)
-    guess_history, hint_history = solver.solve(answer, initial_guess=initial_guess)
+    guess_history, hint_history, answer_size_history = solver.solve(answer, initial_guess=initial_guess)
     assert guess_history is not None
     assert len(guess_history) == num_guesses
     assert guess_history[-1] == answer
