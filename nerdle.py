@@ -40,6 +40,7 @@ import generator
 from score import score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator
 from score_guess import score_guess
 
+
 class NerdleData:
     """Encapsulates data structures required for the solver."""
     def __init__(self, num_slots: int, file_name: str):
@@ -84,29 +85,41 @@ class _NerdleDataDict(NerdleData):
             self._answers = sorted(self.score_db.keys())
         return self._answers
 
+    @property
+    def initial_answers(self) -> Set[str]:
+        return set(self._answers)
+
     def answers_of_score(self, guess: str, answers: Set[str], score: int) -> Set[str]:
         return {a for a in answers if self.score_db[guess][a] == score}
 
-    def restrict_by_answers(self,  answers: Set[str]) -> Dict[str, Dict[str, int]]:
+    def restrict_by_answers(self,  answers: Set[str]):
         return {
             guess: dict((answer, score) for answer, score in scores_by_answer_dict.items() if answer in answers)
             for guess, scores_by_answer_dict in self.score_db.items()
-        }
+        }, answers
+
+    def score_values(self, score_db):
+        return score_db.values()
 
 
 class _NerdleDataMatrix(NerdleData):
     """Encapsulates data structures required for the solver. Matrix implementation -- in-memory numpu array, loaded from
     and saved to a h5py file."""
-    def __init__(self, num_slots: int, file_name: str, overwrite: bool = False):
+    def __init__(self, num_slots: int, file_name: str, overwrite: bool = False,
+                 max_answers: Optional[int] = None):
         super(_NerdleDataMatrix, self).__init__(num_slots, file_name)
         if overwrite or not os.path.exists(self._file_name):
             with open(self._file_name , "wb") as f:
                 self.answers = sorted(generator.all_answers(self.num_slots))
+                if max_answers is not None:
+                    self.answers = self.answers[:max_answers]
                 self.score_db = _NerdleDataMatrix._create_score_database(self.answers)
-                pickle.dump(self.score_db, f)
+                pickle.dump({"answers": self.answers, "score_db": self.score_db}, f)
         else:
             with open(self._file_name, "rb") as f:
-                self.score_db = pickle.load(f)
+                data = pickle.load(f)
+                self.answers = data["answers"]
+                self.score_db = data["score_db"]
 
     @staticmethod
     def _create_score_database(answers):
@@ -121,11 +134,18 @@ class _NerdleDataMatrix(NerdleData):
             score_db[i] = [score_guess(guess, answer) for answer in answers]
         return score_db
 
-    def answers_of_score(self, guess: str, answers: List[str], score: int) -> List[str]:
-        return answers[self.score_db[guess][answers] == score]
+    @property
+    def initial_answers(self) -> np.ndarray:
+        return np.full((self.score_db.shape[1], ), True, dtype=bool)
 
-    def restrict_by_answers(self,  answer_index: List[int]) -> np.ndarray:
-        return self.score_db[:, answers]
+    def answers_of_score(self, guess: str, answers: List[str], score: int) -> np.ndarray:
+        return self.score_db[guess][answers] == score
+
+    def restrict_by_answers(self,  answer_index: List[int]):
+        return self.score_db[:, answer_index], np.full((self.score_db.shape[1], ), True, dtype=bool)
+
+    def score_values(self, score_db):
+        return score_db
 
 
 class NerdleSolver:
@@ -137,7 +157,8 @@ class NerdleSolver:
         self._data = data
         # A working copy of data.score_db entries modified within solve().
         self._score_db = data.score_db
-        self._answers = set(self._data.answers)
+        self._all_answers = self._data.answers
+        self._answers = self._data.initial_answers
         self._num_slots = len(next(iter(self._answers)))
         self._all_correct = hints_to_score([Hint.CORRECT] * self._num_slots)
 
@@ -179,7 +200,7 @@ class NerdleSolver:
         # Restrict possible_score_db to only include possible answers. This creates a new dictionary,
         # so it does not override self.score_db.
         self._answers = self._data.answers_of_score(guess, self._answers, score)
-        self._score_db = self._data.restrict_by_answers(self._answers)
+        self._score_db, self._answers = self._data.restrict_by_answers(self._answers)
         if score == self._all_correct:
             return None
         # Make the next guess.
@@ -188,8 +209,8 @@ class NerdleSolver:
         # TODO: a possible improvement is to weight the counts by bigram conditional probabilities (how likely a
         #  character is to appear after another in the current answer set).
         return min(
-            (max(collections.Counter(scores_by_answer_dict.values()).values()), guess not in self._answers, guess)
-            for guess, scores_by_answer_dict in self._score_db.items()
+            (max(collections.Counter(self._data.score_values(self._score_db[guess])).values()), guess not in self._answers, guess)
+            for guess in self._all_answers
         )[-1]
 
 

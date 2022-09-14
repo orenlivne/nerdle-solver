@@ -15,11 +15,17 @@ from score import Hint, hints_to_score, hint_string_to_score
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
 SCORE_DB_FILE = "nerdle{}.db".format(NUM_SLOTS)
+SCORE_DB_MATRIX_FILE = "nerdle{}.matrix.db".format(NUM_SLOTS)
 
 
 @pytest.fixture()
 def solver_data():
     return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_FILE)
+
+
+@pytest.fixture()
+def solver_data_matrix():
+    return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_MATRIX_FILE, strategy="matrix")
 
 
 class TestNerdle:
@@ -73,7 +79,10 @@ class TestNerdle:
         run_solver(solver_data, "54/9=6", "54/9=6", 1)
 
     def test_solve_guess_dict(self, solver_data):
-        run_solver(solver_data, "4*3=12", "10-5=5", 3)
+        run_solver(solver_data, "4*3=12", "10-5=5", 3, debug=True)
+
+    def test_solve_guess_matrix(self, solver_data_matrix):
+        run_solver(solver_data_matrix, "4*3=12", "10-5=5", 3, debug=True)
 
     def test_solve_guess_interactive(self, solver_data):
         answer = "4*3=12"
