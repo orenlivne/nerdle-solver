@@ -239,9 +239,10 @@ def create_solver_data(num_slots: int, file_name: str, strategy: Optional[str] =
         return _NerdleDataSqlite(num_slots, file_name)
 
 
-def create_score_dictionary(answers, score_dict, print_frequency: int = 100):
+def create_score_dictionary(answers, score_dict):
     # default dict avoids storing keys as tuple, saves lookup time
     n = len(answers)
+    print_frequency = n // 20
     for i, guess in enumerate(answers):
         if print_frequency > 0 and i % print_frequency == 0:
             print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
