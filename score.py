@@ -12,6 +12,8 @@ class Hint:
 
 HINT_STRING = {Hint.INCORRECT: "-", Hint.CORRECT: "+", Hint.MISPLACED: "?"}
 
+STRING_TO_HINT = {v: k for k, v in HINT_STRING.items()}
+
 OPERATIONS = "+-*/"
 
 
@@ -63,6 +65,10 @@ def score_to_hints(score, num_slots):
 
 def score_to_hint_string(score, num_slots):
     return "".join(HINT_STRING[int("".join(x), 2)] for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2))[::-1]
+
+
+def hint_string_to_score(hint_str: str):
+    return hints_to_score(list(map(lambda x: STRING_TO_HINT[x], hint_str))[::-1])
 
 
 def grouper(iterable, n, *, incomplete='fill', fillvalue=None):
