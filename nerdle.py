@@ -65,9 +65,10 @@ class _NerdleDataDict(NerdleData):
     def _create_score_database(answers):
         # default dict avoids storing keys as tuple, saves lookup time
         n = len(answers)
+        num_slots = len(next(iter(answers)))
         print_frequency = n // 20
         score_db = {}
-        scorer = Scorer(self.num_slots)
+        scorer = Scorer(num_slots)
         for i, guess in enumerate(answers):
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
@@ -109,9 +110,10 @@ class _NerdleDataMatrix(NerdleData):
     def _create_score_database(answers):
         # default dict avoids storing keys as tuple, saves lookup time
         n = len(answers)
+        num_slots = len(next(iter(answers)))
         print_frequency = n // 20
         score_db = np.zeros((n, n), dtype=int)
-        scorer = Scorer(self.num_slots)
+        scorer = Scorer(num_slots)
         for i, guess in enumerate(answers):
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
