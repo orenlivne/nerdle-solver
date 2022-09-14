@@ -12,7 +12,7 @@ from score import Hint, hints_to_score
 
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
-SCORE_DICT_FILE = "mini_nerdle"
+SCORE_DICT_FILE = "nerdle6"
 
 
 class TestNerdle:
@@ -70,13 +70,13 @@ class TestNerdle:
 
     def test_solve_guess_dict(self):
         # Guess = answer ==> one guess for a solve.
-        with nerdle.create_solver_data(NUM_SLOTS, "mini_nerdle", strategy="dict") as solver_data:
+        with nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE, strategy="dict") as solver_data:
             run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
-    def test_solve_guess_sqlite(self):
-        # Guess = answer ==> one guess for a solve.
-        with nerdle.create_solver_data(NUM_SLOTS, "mini_nerdle_sqlite", strategy="sqlite") as solver_data:
-            run_solver(solver_data, "4*3=12", "10-5=5", 3)
+    # def test_solve_guess_sqlite(self):
+    #     # Guess = answer ==> one guess for a solve.
+    #     with nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE + "_sqlite", strategy="sqlite") as solver_data:
+    #         run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
 
 def run_solver(solver_data, answer, initial_guess, num_guesses):

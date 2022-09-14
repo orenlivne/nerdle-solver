@@ -117,16 +117,14 @@ class _NerdleDataSqlite(NerdleData):
     def restrict_by_answers(self,  answers: Set[str]) -> Dict[str, Dict[str, int]]:
         with sqlite3.connect(self._file_name + ".db") as conn:
             c = conn.cursor()
-           # print("restrict_by_answers")
-           # print(answers)
-           # print("select guess, score, answer from score where answer in (%s)" %
-           #                     ','.join('?' * len(answers)), tuple(answers))
+            # print("restrict_by_answers")
+            print(answers)
+            # print("select guess, score, answer from score where answer in (%s)" %
+            #                     ','.join('?' * len(answers)), tuple(answers))
             records = c.execute("select guess, answer, score from score where answer in (%s)" %
                                 ','.join('?' * len(answers)), tuple(answers))
-            score_dict = {}
+            score_dict = collections.defaultdict(dict)
             for guess, answer, score in records:
-                if guess not in score_dict:
-                    score_dict[guess] = {}
                 score_dict[guess][answer] = score
             return score_dict
 
@@ -235,7 +233,7 @@ def parse_args():
 def create_solver_data(num_slots: int, file_name: str, strategy: Optional[str] = None) -> NerdleData:
     """Creates/load solver data from existing database file. For small files, uses pickle. For large files, uses
     SQLite."""
-    if num_slots <= 6 and strategy == "dict":
+    if num_slots <= 8:  # and strategy == "dict":
         return _NerdleDataDict(num_slots, file_name + ".db")
     else:
         return _NerdleDataSqlite(num_slots, file_name)
