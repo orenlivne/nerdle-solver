@@ -13,12 +13,12 @@ from score import Hint, hints_to_score, hint_string_to_score
 
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
-SCORE_DICT_FILE = "nerdle{}.db".format(NUM_SLOTS)
+SCORE_DB_FILE = "nerdle{}.db".format(NUM_SLOTS)
 
 
 @pytest.fixture()
 def solver_data():
-    return nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE)
+    return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_FILE)
 
 
 class TestNerdle:
@@ -50,8 +50,8 @@ class TestNerdle:
     def test_get_score_data(self, solver_data):
         assert all(len(answer) == NUM_SLOTS for answer in solver_data.answers)
         num_answers = 206
-        assert len(solver_data.score_dict) == num_answers
-        assert all(len(value) == num_answers for value in solver_data.score_dict.values())
+        assert len(solver_data.score_db) == num_answers
+        assert all(len(value) == num_answers for value in solver_data.score_db.values())
 
     def test_generate_all_answers(self):
         assert all(len(answer) == NUM_SLOTS for answer in list(generator.all_answers(NUM_SLOTS)))
@@ -94,7 +94,7 @@ class TestNerdle:
 
     # def test_solve_guess_sqlite(self):
     #     # Guess = answer ==> one guess for a solve.
-    #     with nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE + "_sqlite", strategy="sqlite") as solver_data:
+    #     with nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_FILE + "_sqlite", strategy="sqlite") as solver_data:
     #         run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
 
