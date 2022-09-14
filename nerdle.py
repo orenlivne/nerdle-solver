@@ -107,7 +107,7 @@ class _NerdleDataSqlite(NerdleData):
     def answers_of_score(self, guess: str, answers: Set[str], score: int) -> Set[str]:
         with sqlite3.connect(self._file_name + ".db") as conn:
             c = conn.cursor()
-            print("answers_of_score")
+#            print("answers_of_score")
             #print(guess, score, answers)
             answers = set(record[0] for record in
                           c.execute("select answer from score where guess = ? and score = ? and answer in (%s)" %
@@ -117,14 +117,16 @@ class _NerdleDataSqlite(NerdleData):
     def restrict_by_answers(self,  answers: Set[str]) -> Dict[str, Dict[str, int]]:
         with sqlite3.connect(self._file_name + ".db") as conn:
             c = conn.cursor()
-            print("restrict_by_answers")
-            print(answers)
-            print("select guess, score, answer from score where answer in (%s)" %
+           # print("restrict_by_answers")
+           # print(answers)
+           # print("select guess, score, answer from score where answer in (%s)" %
+           #                     ','.join('?' * len(answers)), tuple(answers))
+            records = c.execute("select guess, answer, score from score where answer in (%s)" %
                                 ','.join('?' * len(answers)), tuple(answers))
-            records = c.execute("select guess, score, answer from score where answer in (%s)" %
-                                ','.join('?' * len(answers)), tuple(answers))
-            score_dict = collections.defaultdict(dict)
+            score_dict = {}
             for guess, answer, score in records:
+                if guess not in score_dict:
+                    score_dict[guess] = {}
                 score_dict[guess][answer] = score
             return score_dict
 
