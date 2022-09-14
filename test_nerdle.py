@@ -72,7 +72,7 @@ class TestNerdle:
         run_solver(solver_data, "54/9=6", "54/9=6", 1)
 
     def test_solve_guess_dict(self, solver_data):
-        run_solver(solver_data, "4*3=12", "10-5=5", 3, debug=True)
+        run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
     def test_solve_guess_interactive(self, solver_data):
         answer = "4*3=12"
@@ -87,12 +87,10 @@ class TestNerdle:
 
         solver = nerdle.NerdleSolver(solver_data)
         guess_history, hint_history, answer_size_history = solver.solve_adversary(hint_generator.__call__,
-                                                                                  initial_guess=initial_guess,
-                                                                                  debug=True)
+                                                                                  initial_guess=initial_guess)
         assert guess_history is not None
         assert len(guess_history) == 3
         assert guess_history[-1] == answer
-        assert False
 
     # def test_solve_guess_sqlite(self):
     #     # Guess = answer ==> one guess for a solve.
