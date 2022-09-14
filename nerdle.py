@@ -30,13 +30,14 @@ References:
 import argparse
 import collections
 import itertools
+import sys
 import os
 import pickle
 import sqlite3
 from typing import Tuple, List, Optional, Set, Dict
 
 import generator
-from score import score_guess, score_to_hint_string, Hint, hints_to_score
+from score import score_guess, score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator
 
 
 class NerdleData:
@@ -169,14 +170,13 @@ class NerdleSolver:
 
         while guesses_left > 0:
             # reduce amount of possible answers by checking answer against guess and score.
-            score = hint_generator(guess)
             if debug:
-                print("guess {}".format(guess))
-                print("score {}".format(score_to_hint_string(score, self._num_slots)))
+                print("--> guess {}".format(guess))
+            score = hint_generator(guess)
             guess = self.make_guess(guess, score)
             if debug:
-                print("guess {} score {} answers {}".format(
-                    guess, score_to_hint_string(score, self._num_slots), len(self._answers)))
+                print("score {} {} answers {}".format(
+                    score_to_hint_string(score, self._num_slots), score, len(self._answers)))
             if guess is not None:
                 guess_history.append(guess)
             hint_history.append(score)
@@ -217,8 +217,6 @@ class NerdleSolver:
 def parse_args():
     """Defines and parses command-line flags."""
     parser = argparse.ArgumentParser(description="Nerdle Solver.")
-    parser.add_argument("--mode", default=None, required=True, choices=["build_dict"],
-                        help="Running mode. 'build_dict': builds score dictionary and saves to a file.")
     parser.add_argument("--slots", default=6, type=int, help="Number of slots in answer.")
     parser.add_argument("--score_dict_file", default="score_dict.pickle",
                         help="Path to score dictionary pickle file name.")
@@ -251,10 +249,20 @@ if __name__ == "__main__":
     # Create/load solver data.
     solver_data = create_solver_data(args.slots, args.score_dict_file)
 
-    # if args.mode == "build_dict":
-    # elif args.mode == "run":
-    print("Slots {} answers {} score_dict size {}".format(
+    print("Loaded: slots {} answers {} score_dict size {}".format(
         solver_data.num_slots, len(solver_data.score_dict), len(solver_data.score_dict.items())))
+
+    initial_guess = "10-5=5"
+    # answer = "4*3=12"
+    # guess_history, hint_history, answer_size_history = NerdleSolver(solver_data).solve(answer, initial_guess=initial_guess, debug=True)
+
+    def hint_generator(guess):
+        hint_str = input("> ")
+        return hint_string_to_score(hint_str)
+
+    hint_generator = FileHintGenerator(sys.stdin)
+    guess_history, hint_history, answer_size_history = NerdleSolver(solver_data).solve_adversary(hint_generator.__call__, initial_guess=initial_guess, debug=True)
+
 #
 #     for param_values, result in answers:
 #         print(param_values, result)

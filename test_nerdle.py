@@ -1,5 +1,6 @@
 """Nerdle game solver unit tests."""
 import itertools
+import io
 import os
 import pickle
 import pytest
@@ -8,7 +9,7 @@ import generator
 import nerdle
 import score
 from nerdle import NerdleData
-from score import Hint, hints_to_score
+from score import Hint, hints_to_score, hint_string_to_score
 
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
@@ -71,8 +72,27 @@ class TestNerdle:
         run_solver(solver_data, "54/9=6", "54/9=6", 1)
 
     def test_solve_guess_dict(self, solver_data):
-        # Guess = answer ==> one guess for a solve.
         run_solver(solver_data, "4*3=12", "10-5=5", 3, debug=True)
+
+    def test_solve_guess_interactive(self, solver_data):
+        answer = "4*3=12"
+        initial_guess = "10-5=5"
+
+        hints = [
+            "?---?-",
+            "?+-+??",
+            "++++++",
+        ]
+        hint_generator = score.FileHintGenerator(io.StringIO("\n".join(hints)))
+
+        solver = nerdle.NerdleSolver(solver_data)
+        guess_history, hint_history, answer_size_history = solver.solve_adversary(hint_generator.__call__,
+                                                                                  initial_guess=initial_guess,
+                                                                                  debug=True)
+        assert guess_history is not None
+        assert len(guess_history) == 3
+        assert guess_history[-1] == answer
+        assert False
 
     # def test_solve_guess_sqlite(self):
     #     # Guess = answer ==> one guess for a solve.

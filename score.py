@@ -68,7 +68,7 @@ def score_to_hint_string(score, num_slots):
 
 
 def hint_string_to_score(hint_str: str):
-    return hints_to_score(list(map(lambda x: STRING_TO_HINT[x], hint_str))[::-1])
+    return hints_to_score(list(map(lambda x: STRING_TO_HINT[x], hint_str)))
 
 
 def grouper(iterable, n, *, incomplete='fill', fillvalue=None):
@@ -85,3 +85,14 @@ def grouper(iterable, n, *, incomplete='fill', fillvalue=None):
         return zip(*args)
     else:
         raise ValueError('Expected fill, strict, or ignore')
+
+
+class FileHintGenerator:
+    def __init__(self, file):
+        self._file = file
+        self._count = 0
+
+    def __call__(self, guess):
+        hint_str = self._file.readline().strip()
+        self._count += 1
+        return hint_string_to_score(hint_str)
