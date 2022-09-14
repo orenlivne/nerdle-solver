@@ -15,6 +15,11 @@ NUM_SLOTS = 6
 SCORE_DICT_FILE = "nerdle{}.db".format(NUM_SLOTS)
 
 
+@pytest.fixture()
+def solver_data():
+    return nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE)
+
+
 class TestNerdle:
     def test_score(self):
         assert score.score_guess("54/9=6", "4*7=28") == \
@@ -41,12 +46,11 @@ class TestNerdle:
                hints_to_score((Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.CORRECT, Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT))
 
-    def test_get_score_data(self):
-        with nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE) as solver_data:
-            assert all(len(answer) == NUM_SLOTS for answer in solver_data.answers)
-            num_answers = 206
-            assert len(solver_data.score_dict) == num_answers
-            assert all(len(value) == num_answers for value in solver_data.score_dict.values())
+    def test_get_score_data(self, solver_data):
+        assert all(len(answer) == NUM_SLOTS for answer in solver_data.answers)
+        num_answers = 206
+        assert len(solver_data.score_dict) == num_answers
+        assert all(len(value) == num_answers for value in solver_data.score_dict.values())
 
     def test_generate_all_answers(self):
         assert all(len(answer) == NUM_SLOTS for answer in list(generator.all_answers(NUM_SLOTS)))
@@ -57,21 +61,18 @@ class TestNerdle:
         assert len(list(generator.all_answers(7))) == 6661
 #        assert len(list(generator.all_answers(8))) == 17723
 
-    def test_solve(self):
-        with nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE) as solver_data:
-            run_solver(solver_data, "4*7=28", "54/9=6", 3)
-            run_solver(solver_data, "4*3=12", "54/9=6", 4)
-            run_solver(solver_data, "4*3=12", "10-5=5", 3)
+    def test_solve(self, solver_data):
+        run_solver(solver_data, "4*7=28", "54/9=6", 3)
+        run_solver(solver_data, "4*3=12", "54/9=6", 4)
+        run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
-    def test_solve_guess_equals_answer(self):
+    def test_solve_guess_equals_answer(self, solver_data):
         # Guess = answer ==> one guess for a solve.
-        with nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE) as solver_data:
-            run_solver(solver_data, "54/9=6", "54/9=6", 1)
+        run_solver(solver_data, "54/9=6", "54/9=6", 1)
 
-    def test_solve_guess_dict(self):
+    def test_solve_guess_dict(self, solver_data):
         # Guess = answer ==> one guess for a solve.
-        with nerdle.create_solver_data(NUM_SLOTS, SCORE_DICT_FILE, strategy="dict") as solver_data:
-            run_solver(solver_data, "4*3=12", "10-5=5", 3, debug=True)
+        run_solver(solver_data, "4*3=12", "10-5=5", 3, debug=True)
 
     # def test_solve_guess_sqlite(self):
     #     # Guess = answer ==> one guess for a solve.
