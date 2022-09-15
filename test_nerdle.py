@@ -6,7 +6,7 @@ import os
 import pickle
 import pytest
 from joblib import Parallel, delayed, wrap_non_picklable_objects
-import multiprocessing
+from numpy.testing import assert_array_equal
 
 import generator
 import nerdle
@@ -19,11 +19,17 @@ sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
 SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(NUM_SLOTS)
+SCORE_DB_SERIAL_FILE = "db/nerdle{}.serial.db".format(NUM_SLOTS)
 
 
 @pytest.fixture()
 def solver_data():
     return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_MATRIX_FILE)
+
+
+@pytest.fixture()
+def solver_data_serial():
+    return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_SERIAL_FILE, n_jobs=0)
 
 
 class TestNerdle:
@@ -32,6 +38,8 @@ class TestNerdle:
         assert sgo.score_guess(b"54/9=6", b"4*7=28") == \
                hints_to_score((Hint.INCORRECT, Hint.MISPLACED, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.MISPLACED, Hint.INCORRECT))
+        assert sgo.score_guess(b"1+9=10", b"1+9=10") == \
+               hints_to_score([Hint.CORRECT] * 6)
 
     def test_score_cython(self):
         assert sg.score_guess("54/9=6", "4*7=28") == \
@@ -58,11 +66,19 @@ class TestNerdle:
                hints_to_score((Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.CORRECT, Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT))
 
+    def test_get_score_data_serial(self, solver_data_serial):
+        assert all(len(answer) == NUM_SLOTS for answer in solver_data_serial.answers)
+        num_answers = 206
+        assert len(solver_data_serial.answers) == num_answers
+        assert solver_data_serial.score_db.shape == (num_answers, num_answers)
+        assert_array_equal(solver_data_serial.score_db[0, :3], [1365, 2721, 2177])
+
     def test_get_score_data(self, solver_data):
         assert all(len(answer) == NUM_SLOTS for answer in solver_data.answers)
         num_answers = 206
         assert len(solver_data.answers) == num_answers
         assert solver_data.score_db.shape == (num_answers, num_answers)
+        assert_array_equal(solver_data.score_db[0, :3], [1365, 2721, 2177])
 
     def test_generate_all_answers(self):
         assert all(len(answer) == NUM_SLOTS for answer in list(generator.all_answers(NUM_SLOTS)))
@@ -100,28 +116,36 @@ class TestNerdle:
         assert len(guess_history) == 3
         assert guess_history[-1] == answer
 
+    def test_solve_serial(self, solver_data_serial):
+        run_solver(solver_data_serial, "4*7=28", "54/9=6", 3, debug=True)
+
     # def test_solve_guess_sqlite(self):
     #     # Guess = answer ==> one guess for a solve.
     #     with nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_FILE + "_sqlite", strategy="sqlite") as solver_data:
     #         run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
     def test_parallelizing_loop_joblib(self):
+        # This seems to be fine as a nested function, but for more complex examples, make the function
+        # top-level, as in the following test case.
         def process(i: int):
             return i * i
         results = Parallel(n_jobs=2)(delayed(process)(i) for i in range(10))
         assert results == [i ** 2 for i in range(10)]
 
-    # def test_parallelizing_loop_ctypes(self):
-    #     init_c_library(sgo)
-    #     guess = str("abd").encode()
-    #     answers = ["abc", "def", "efg"]
-    #
-    #     def process(answer):
-    #         return sgo.score_guess(guess, str(answer).encode())
-    #
-    #     with multiprocessing.Pool(4) as pool:
-    #         results = zip(*pool.map(process, answers))
-    #     assert results == [i + " " for i in "abcde"]
+    def test_parallelizing_loop_ctypes(self):
+        guess = str("abd").encode()
+        answers = ["abc", "def", "efg"]
+        # Build argument tuples since 'guess' is fixed. Or could use functools.partial().
+        results = Parallel(n_jobs=2)(
+                delayed(process)
+                (guess, answer) for answer in answers
+          )
+        assert results == [5, 32, 0]
+
+
+def process(guess, answer):
+    """Must be a top-level function (closure) to be pickeable and used within a joblib pool."""
+    return sgo.score_guess(guess, str(answer).encode())
 
 
 def run_solver(solver_data, answer, initial_guess, num_guesses, debug: bool = False):

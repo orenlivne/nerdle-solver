@@ -7,7 +7,7 @@ Python in https://betterprogramming.pub/solving-mastermind-641411708d01.
 So you won't find an answer like this: 0+5+5=10, or like this: 01+2+1=4. However, 0 is allowed as the
 answer to the right of the equal sign (i.e. 5-3-2=0 is allowed)."
 Thus:
-1. = must be in th e5th, 6th, or 7th slots in the answer.
+1. = must be in the 5th, 6th, or 7th slots in the answer.
 2. (= can be in 2nd..7th slot in a guess.).
 
 "Nerdle answers don't start with negative numbers or have a negative number after the equals sign, even though
@@ -40,7 +40,8 @@ from typing import Tuple, List, Optional, Set, Dict
 
 import generator
 from score import score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator, SCORE_GUESS_OPT_SO
-sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)
+sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)    # C++ implementation.
+#import score_guess as sgo   # Cython implementation.
 
 
 class NerdleData:
@@ -55,18 +56,20 @@ class _NerdleDataMatrix(NerdleData):
     """Encapsulates data structures required for the solver. Matrix implementation -- in-memory numpu array, loaded from
     and saved to a h5py file."""
     def __init__(self, num_slots: int, file_name: str, overwrite: bool = False,
-                 max_answers: Optional[int] = None):
+                 max_answers: Optional[int] = None, n_jobs: int = 2):
+        """n_jobs = 0 --> serial run."""
         super(_NerdleDataMatrix, self).__init__(num_slots, file_name)
         if overwrite or not os.path.exists(self._file_name):
             with h5py.File(self._file_name, "w") as f:
                 self.answers = sorted(generator.all_answers(self.num_slots))
                 if max_answers is not None:
                     self.answers = self.answers[:max_answers]
-                self.score_db = _NerdleDataMatrix._create_score_database(self.answers)
+                self.score_db = _NerdleDataMatrix._create_score_database(self.answers, n_jobs=n_jobs)
                 # Storing answers as bytearray since h5py does not support numpy strings.
                 # TODO: just work with bytearrays instead of strings everywhere.
                 f.create_dataset("answers", data=np.array([x.encode() for x in self.answers]))
                 f.create_dataset("score_db", data=self.score_db)
+                self.answers = np.array(self.answers)
         else:
             with h5py.File(self._file_name, "r") as f:
                 self.answers = np.array([x.decode() for x in f["answers"][:]])
@@ -78,19 +81,17 @@ class _NerdleDataMatrix(NerdleData):
         n = len(answers)
         print_frequency = n // 20
         score_db = np.zeros((n, n), dtype=int)
-        # TODO: parallelize this loop and/or inner loop, since all calculations are independent.
         for i, guess in enumerate(answers):
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
             guess_encoded = str(guess).encode()
-
-            # Serial version:
-            score_db[i] = [sgo.score_guess(guess_encoded, str(answer).encode()) for answer in answers]
-
-            # # Parallel version with joblib:
-            # def score_guess(answer: str):
-            #     return sgo.score_guess(guess_encoded, str(answer).encode())
-            # score_db[i] = Parallel(n_jobs=n_jobs)(delayed(score_guess)(answer) for answer in answers)
+            if n_jobs == 0:
+                # Serial version
+                score_db[i] = [sgo.score_guess(guess_encoded, str(answer).encode()) for answer in answers]
+            else:
+                # Parallel version with joblib:
+                score_db[i] = Parallel(n_jobs=n_jobs)(delayed(_score_guess) (guess_encoded, str(answer).encode())
+                                                      for answer in answers)
         return score_db
 
     @property
@@ -202,9 +203,14 @@ def parse_args():
 
 
 def create_solver_data(num_slots: int, file_name: str, overwrite: bool = False,
-                       max_answers: Optional[int] = None) -> NerdleData:
+                       max_answers: Optional[int] = None, n_jobs: int = 2) -> NerdleData:
     """Creates/load solver data from existing h5py database file."""
-    return _NerdleDataMatrix(num_slots, file_name, overwrite=overwrite, max_answers=max_answers)
+    return _NerdleDataMatrix(num_slots, file_name, overwrite=overwrite, max_answers=max_answers,
+                             n_jobs=n_jobs)
+
+
+def _score_guess(guess, answer):
+    return sgo.score_guess(guess, answer)
 
 
 if __name__ == "__main__":
@@ -226,3 +232,4 @@ if __name__ == "__main__":
 
     hint_generator = FileHintGenerator(sys.stdin)
     guess_history, hint_history, answer_size_history = NerdleSolver(solver_data).solve_adversary(hint_generator.__call__, initial_guess=initial_guess, debug=True)
+

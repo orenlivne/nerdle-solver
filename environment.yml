@@ -5,6 +5,7 @@ channels:
 dependencies:
   - h5py
   - ipython
+  - joblib
   - jupyterlab
   - matplotlib
   - pytest
