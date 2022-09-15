@@ -16,7 +16,7 @@ sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)
 
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
-SCORE_DB_MATRIX_FILE = "db/nerdle{}_matrix.db".format(NUM_SLOTS)
+SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(NUM_SLOTS)
 
 
 @pytest.fixture()

@@ -30,10 +30,10 @@ References:
 import argparse
 import collections
 import ctypes
+import h5py
 import itertools
 import numpy as np
 import os
-import pickle
 import sys
 from typing import Tuple, List, Optional, Set, Dict
 
@@ -57,17 +57,19 @@ class _NerdleDataMatrix(NerdleData):
                  max_answers: Optional[int] = None):
         super(_NerdleDataMatrix, self).__init__(num_slots, file_name)
         if overwrite or not os.path.exists(self._file_name):
-            with open(self._file_name , "wb") as f:
-                self.answers = np.array(sorted(generator.all_answers(self.num_slots)))
+            with h5py.File(self._file_name, "w") as f:
+                self.answers = sorted(generator.all_answers(self.num_slots))
                 if max_answers is not None:
                     self.answers = self.answers[:max_answers]
                 self.score_db = _NerdleDataMatrix._create_score_database(self.answers)
-                pickle.dump({"answers": self.answers, "score_db": self.score_db}, f)
+                # Storing answers as bytearray since h5py does not support numpy strings.
+                # TODO: just work with bytearrays instead of strings everywhere.
+                f.create_dataset("answers", data=np.array([x.encode() for x in self.answers]))
+                f.create_dataset("score_db", data=self.score_db)
         else:
-            with open(self._file_name, "rb") as f:
-                data = pickle.load(f)
-                self.answers = data["answers"]
-                self.score_db = data["score_db"]
+            with h5py.File(self._file_name, "r") as f:
+                self.answers = np.array([x.decode() for x in f["answers"][:]])
+                self.score_db = f["score_db"][:, :]
 
     @staticmethod
     def _create_score_database(answers):
@@ -191,8 +193,7 @@ def parse_args():
 
 def create_solver_data(num_slots: int, file_name: str, overwrite: bool = False,
                        max_answers: Optional[int] = None) -> NerdleData:
-    """Creates/load solver data from existing database file. For small files, uses pickle. For large files, uses
-    SQLite."""
+    """Creates/load solver data from existing h5py database file."""
     return _NerdleDataMatrix(num_slots, file_name, overwrite=overwrite, max_answers=max_answers)
 
 
