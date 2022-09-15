@@ -40,8 +40,8 @@ from typing import Tuple, List, Optional, Set, Dict
 
 import generator
 from score import score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator, SCORE_GUESS_OPT_SO
-sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)    # C++ implementation.
-#import score_guess as sgo   # Cython implementation.
+#sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)    # C++ implementation.
+import score_guess as sgo   # Cython implementation.
 
 
 class NerdleData:
@@ -85,13 +85,13 @@ class _NerdleDataMatrix(NerdleData):
             print("i", i)
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
-            guess_encoded = str(guess).encode()
+            guess_encoded = str(guess)
             if n_jobs == 0:
                 # Serial version
-                score_db[i] = [sgo.score_guess(guess_encoded, str(answer).encode()) for answer in answers]
+                score_db[i] = [sgo.score_guess(guess_encoded, str(answer)) for answer in answers]
             else:
                 # Parallel version with joblib:
-                score_db[i] = Parallel(n_jobs=n_jobs)(delayed(_score_guess)(str(guess_encoded).encode(), str(answer).encode())
+                score_db[i] = Parallel(n_jobs=n_jobs)(delayed(_score_guess)(str(guess_encoded), str(answer))
                                                       for answer in answers)
         return score_db
 
@@ -140,7 +140,7 @@ class NerdleSolver:
 
     def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
               debug: bool = False) -> Tuple[List[str], List[int], List[int]]:
-        return self.solve_adversary(lambda guess: sgo.score_guess(str(guess).encode(), str(answer).encode()),
+        return self.solve_adversary(lambda guess: sgo.score_guess(str(guess), str(answer)),
                                     max_guesses=max_guesses, initial_guess=initial_guess, debug=debug)
 
     def solve_adversary(self, hint_generator, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
