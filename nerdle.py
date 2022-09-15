@@ -35,6 +35,7 @@ import itertools
 import numpy as np
 import os
 import sys
+from joblib import Parallel, delayed
 from typing import Tuple, List, Optional, Set, Dict
 
 import generator
@@ -72,15 +73,24 @@ class _NerdleDataMatrix(NerdleData):
                 self.score_db = f["score_db"][:, :]
 
     @staticmethod
-    def _create_score_database(answers):
+    def _create_score_database(answers, n_jobs: int = 2):
         # default dict avoids storing keys as tuple, saves lookup time
         n = len(answers)
         print_frequency = n // 20
         score_db = np.zeros((n, n), dtype=int)
+        # TODO: parallelize this loop and/or inner loop, since all calculations are independent.
         for i, guess in enumerate(answers):
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
-            score_db[i] = [sgo.score_guess(str(guess).encode(), str(answer).encode()) for answer in answers]
+            guess_encoded = str(guess).encode()
+
+            # Serial version:
+            score_db[i] = [sgo.score_guess(guess_encoded, str(answer).encode()) for answer in answers]
+
+            # # Parallel version with joblib:
+            # def score_guess(answer: str):
+            #     return sgo.score_guess(guess_encoded, str(answer).encode())
+            # score_db[i] = Parallel(n_jobs=n_jobs)(delayed(score_guess)(answer) for answer in answers)
         return score_db
 
     @property

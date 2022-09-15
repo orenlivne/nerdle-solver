@@ -5,6 +5,8 @@ import io
 import os
 import pickle
 import pytest
+from joblib import Parallel, delayed, wrap_non_picklable_objects
+import multiprocessing
 
 import generator
 import nerdle
@@ -103,6 +105,24 @@ class TestNerdle:
     #     with nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_FILE + "_sqlite", strategy="sqlite") as solver_data:
     #         run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
+    def test_parallelizing_loop_joblib(self):
+        def process(i: int):
+            return i * i
+        results = Parallel(n_jobs=2)(delayed(process)(i) for i in range(10))
+        assert results == [i ** 2 for i in range(10)]
+
+    # def test_parallelizing_loop_ctypes(self):
+    #     init_c_library(sgo)
+    #     guess = str("abd").encode()
+    #     answers = ["abc", "def", "efg"]
+    #
+    #     def process(answer):
+    #         return sgo.score_guess(guess, str(answer).encode())
+    #
+    #     with multiprocessing.Pool(4) as pool:
+    #         results = zip(*pool.map(process, answers))
+    #     assert results == [i + " " for i in "abcde"]
+
 
 def run_solver(solver_data, answer, initial_guess, num_guesses, debug: bool = False):
     solver = nerdle.NerdleSolver(solver_data)
@@ -110,3 +130,30 @@ def run_solver(solver_data, answer, initial_guess, num_guesses, debug: bool = Fa
     assert guess_history is not None
     assert len(guess_history) == num_guesses
     assert guess_history[-1] == answer
+
+def init_c_library(LIBC):
+    # LIBC is now an object and its method are C Code's functions
+    #LIBC = ctypes.CDLL(self.path)
+
+    # Settings C library's signature datatype with ctypes data structure tool
+    # INFO: To see all datas types that can be transmitted to C Code
+    # read ctypes documentation
+    # First argument is int : argc
+    # Second argument is string array : argv
+    # Third is a string : path_to_log_file
+    LIBC.score_guess.argtypes = [ctypes.c_int,
+                                        ctypes.POINTER(ctypes.c_char_p),
+                                        ctypes.c_char_p, ]
+    # Return type is int : Return code
+    LIBC.score_guess.restypes = [ctypes.c_int, ]
+    #
+    # #%% Marshalling data for C library
+    # # Create a string array with option list length size
+    # c_char_pointer_array = ctypes.c_char_p * len(options)
+    # # Encode option list
+    # encoded_options = [str.encode(str(i)) for i in options ]
+    # # Fill the string array with encoded strings
+    # # REMINDER: C code only understand encoded strings
+    # encoded_options = c_char_pointer_array (*encoded_options)
+    # #%% Calling C library wihth encoded options
+    # LIBC.score_guess(len(encoded_options), encoded_options, None)
