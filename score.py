@@ -3,6 +3,7 @@ import functools
 import itertools
 from enum import Enum
 
+SCORE_GUESS_OPT_SO = "./score_guess_opt.so"
 
 class Hint:
     """Hint codes."""
