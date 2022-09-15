@@ -82,6 +82,7 @@ class _NerdleDataMatrix(NerdleData):
         print_frequency = n // 20
         score_db = np.zeros((n, n), dtype=int)
         for i, guess in enumerate(answers):
+            print("i", i)
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
             guess_encoded = str(guess).encode()
@@ -90,7 +91,7 @@ class _NerdleDataMatrix(NerdleData):
                 score_db[i] = [sgo.score_guess(guess_encoded, str(answer).encode()) for answer in answers]
             else:
                 # Parallel version with joblib:
-                score_db[i] = Parallel(n_jobs=n_jobs)(delayed(_score_guess) (guess_encoded, str(answer).encode())
+                score_db[i] = Parallel(n_jobs=n_jobs)(delayed(_score_guess)(str(guess_encoded).encode(), str(answer).encode())
                                                       for answer in answers)
         return score_db
 
