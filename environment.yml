@@ -9,4 +9,5 @@ dependencies:
   - matplotlib
   - pytest
   - python >=3.9
+  - selenium
 prefix: /Users/olivne/opt/miniconda3/envs/nerdle

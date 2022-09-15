@@ -1,3 +1,5 @@
+"""Cython implementation of the guess scoring function. 2x faster than native python, but doesn't really use any
+optimized Cython strings/operations."""
 import cython
 from score import Hint
 

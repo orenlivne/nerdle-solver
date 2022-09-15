@@ -3,11 +3,16 @@ import functools
 import itertools
 from enum import Enum
 
+
 class Hint:
     """Hint codes."""
-    INCORRECT = 0       # Nerdle black
-    CORRECT = 1         # Nerdle green
-    MISPLACED = 2       # Nerdle purple
+    INCORRECT = 0       # Nerdle black: not in the answer.
+    CORRECT = 1         # Nerdle green: in the correct spot.
+    MISPLACED = 2       # Nerdle purple: in the answer, but not in the correct spot.
+
+    # Not needed for the Nerdle game rules, but useful for the web interface Client: an empty
+    # square in the Nerdle grid.
+    EMPTY = 3
 
 
 HINT_STRING = {Hint.INCORRECT: "-", Hint.CORRECT: "+", Hint.MISPLACED: "?"}

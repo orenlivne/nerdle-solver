@@ -14,8 +14,8 @@ from score import Hint, hints_to_score, hint_string_to_score
 
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
-SCORE_DB_FILE = "nerdle{}.db".format(NUM_SLOTS)
-SCORE_DB_MATRIX_FILE = "nerdle{}.matrix.db".format(NUM_SLOTS)
+SCORE_DB_FILE = "db/nerdle{}.db".format(NUM_SLOTS)
+SCORE_DB_MATRIX_FILE = "db/nerdle{}_matrix.db".format(NUM_SLOTS)
 
 
 @pytest.fixture()
@@ -74,17 +74,16 @@ class TestNerdle:
         run_solver(solver_data, "4*3=12", "54/9=6", 4)
         run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
-    def test_solve_guess_equals_answer(self, solver_data):
+    def test_solve_matrix(self, solver_data_matrix):
+        run_solver(solver_data_matrix, "4*7=28", "54/9=6", 3)
+        run_solver(solver_data_matrix, "4*3=12", "54/9=6", 4)
+        run_solver(solver_data_matrix, "4*3=12", "10-5=5", 3)
+
+    def test_solve_guess_equals_answer(self, solver_data_matrix):
         # Guess = answer ==> one guess for a solve.
-        run_solver(solver_data, "54/9=6", "54/9=6", 1)
+        run_solver(solver_data_matrix, "54/9=6", "54/9=6", 1)
 
-    def test_solve_guess_dict(self, solver_data):
-        run_solver(solver_data, "4*3=12", "10-5=5", 3, debug=True)
-
-    def test_solve_guess_matrix(self, solver_data_matrix):
-        run_solver(solver_data_matrix, "4*3=12", "10-5=5", 3, debug=True)
-
-    def test_solve_guess_interactive(self, solver_data):
+    def test_solve_guess_interactive(self, solver_data_matrix):
         answer = "4*3=12"
         initial_guess = "10-5=5"
 
@@ -95,7 +94,7 @@ class TestNerdle:
         ]
         hint_generator = s.FileHintGenerator(io.StringIO("\n".join(hints)))
 
-        solver = nerdle.NerdleSolver(solver_data)
+        solver = nerdle.NerdleSolver(solver_data_matrix)
         guess_history, hint_history, answer_size_history = solver.solve_adversary(hint_generator.__call__,
                                                                                   initial_guess=initial_guess)
         assert guess_history is not None

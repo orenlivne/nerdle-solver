@@ -214,10 +214,7 @@ class NerdleSolver:
             guess_key = self.make_guess(guess_key, score)
             guess = self._data.value(guess_key)
             if debug:
-                print("_answer_keys {}".format(self._answer_keys))
-                print("value(_answer_keys) {}".format([self._data.value(k) for k in self._answer_keys]))
-                print("score {} {} answers {}".format(
-                    score_to_hint_string(score, self._num_slots), score, len(self._answers)))
+                print("answers {}".format(len(self._answers)))
             if guess is not None:
                 guess_history.append(guess)
             hint_history.append(score)
@@ -239,11 +236,6 @@ class NerdleSolver:
         # Sort by score, then by guess possibility (prefer possible guesses over impossible ones.), get min (best case).
         # TODO: a possible improvement is to weight the counts by bigram conditional probabilities (how likely a
         #  character is to appear after another in the current answer set).
-        a =[(max(collections.Counter(self._data.score_values(self._score_db[guess_key])).values()),
-             guess_key not in self._answers,
-             guess_key)
-            for guess_key in self._all_keys]
-        print(a)
         return min(
             (max(collections.Counter(self._data.score_values(self._score_db[guess_key])).values()),
              guess_key not in self._answer_keys,
@@ -291,12 +283,3 @@ if __name__ == "__main__":
 
     hint_generator = FileHintGenerator(sys.stdin)
     guess_history, hint_history, answer_size_history = NerdleSolver(solver_data).solve_adversary(hint_generator.__call__, initial_guess=initial_guess, debug=True)
-
-#
-#     for param_values, result in answers:
-#         print(param_values, result)
-# #        print("".join(map(str, param_values)) + "=" + str(int(result)))
-
-    # Assumes that the set of all guesses = set of all answers. A Nerdle guess must "compute", i.e., must be a valid
-    # arithmetic expression of the form 'LHS=RHS'. Since we assume the user knows the rules and does not enter unary
-    # '-' operations of numbers with leading zeros, for instance, the set of guesses should equal the set of answers.
