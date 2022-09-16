@@ -7,16 +7,12 @@ SCORE_GUESS_OPT_SO = "./score_guess_opt.so"
 
 class Hint:
     """Hint codes."""
-    INCORRECT = 0       # Nerdle black: not in the answer.
+    ABSENT = 0       # Nerdle black: not in the answer.
     CORRECT = 1         # Nerdle green: in the correct spot.
-    MISPLACED = 2       # Nerdle purple: in the answer, but not in the correct spot.
-
-    # Not needed for the Nerdle game rules, but useful for the web interface Client: an empty
-    # square in the Nerdle grid.
-    EMPTY = 3
+    PRESENT = 2       # Nerdle purple: in the answer, but not in the correct spot.
 
 
-HINT_STRING = {Hint.INCORRECT: "-", Hint.CORRECT: "+", Hint.MISPLACED: "?"}
+HINT_STRING = {Hint.ABSENT: "-", Hint.CORRECT: "+", Hint.PRESENT: "?"}
 
 STRING_TO_HINT = {v: k for k, v in HINT_STRING.items()}
 
