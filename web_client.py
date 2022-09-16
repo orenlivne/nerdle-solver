@@ -20,16 +20,10 @@ def parse_args():
 class NerdleClient:
     def __init__(self, driver):
         self._driver = driver
-        self.square_elements, self.square_location, self.square_size = self.grid_square_location()
+        self.square_elements = self.grid_square_location()
 
     def grid_square_location(self):
         "Returns grid square locations: row x column x (x, y)"
-        try:
-            WebDriverWait(driver, 1).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'pb-grid')))
-        except TimeoutException:
-            raise TimeoutException("Loading took too much time!")
-
         square_elements = self._driver.find_elements("xpath", "//div[contains(@class, 'pb-grid')]//div[@role]")
         square_info = sorted((e.location['y'], e.location['x'], e.get_attribute("aria-label")) for e in square_elements)
         square_size = np.array([square_elements[0].size['width'], square_elements[0].size['height']])
@@ -39,15 +33,6 @@ class NerdleClient:
 
     def grid_status(self):
         return np.array([[e.get_attribute("aria-label") for e in row] for row in self.square_elements])
-
-    def write_text_in_square(self, row, col, text):
-        action = webdriver.ActionChains(self._driver)
-        # x, then y in move_by_offset. Move to middle of square, then send text.
-        x, y = self.square_location[row, col] + self.square_size // 2
-        print(x, y)
-        action.move_by_offset(x, y).perform()
-        action.send_keys(text)
-        action.perform()
 
 
 def _parse_state(score_str):
