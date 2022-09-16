@@ -144,13 +144,22 @@ class NerdleSolver:
         return self.solve_adversary(lambda guess: sgo.score_guess(str(guess).encode(), str(answer).encode()),
                                     max_guesses=max_guesses, initial_guess=initial_guess, debug=debug)
 
+    def guess_key(self, guess):
+        return self._data.key(guess)
+
+    def guess_value(self, guess_key):
+        return self._data.value(guess_key)
+
+    def is_correct(self, score):
+        return score == self._all_correct
+
     def solve_adversary(self, hint_generator, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
                 debug: bool = False) -> Tuple[List[str], List[int], List[int]]:
         guesses_left = max_guesses
         hint_history = []
         answer_size_history = []
         guess = initial_guess
-        guess_key = self._data.key(guess)
+        guess_key = self.guess_key(guess)
         guess_history = [guess]
 
         while guesses_left > 0:
@@ -159,17 +168,17 @@ class NerdleSolver:
             if debug:
                 print("--> guess {} guesses_left {}".format(guess, guesses_left))
             score = hint_generator(guess)
+            hint_history.append(score)
             if debug:
                 print("score {} {}".format(score_to_hint_string(score, self._num_slots), score))
-            if score == self._all_correct:
+            if self.is_correct(score):
                 return guess_history, hint_history, answer_size_history
             guess_key = self.make_guess(guess_key, score)
-            guess = self._data.value(guess_key)
+            guess = self.guess_value(guess_key)
             if debug:
                 print("answers {}".format(len(self._answers)))
             if guess is not None:
                 guess_history.append(guess)
-            hint_history.append(score)
             answer_size_history.append(len(self._answers))
 
         # Failed to solve within the allotted number of guesses.

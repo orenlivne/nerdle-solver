@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from score import OPERATIONS, EQUALS, Hint, HINT_STRING
+from score import OPERATIONS, EQUALS, Hint, HINT_STRING, hints_to_score
 
 
 # Send an expression.
@@ -49,6 +49,11 @@ class NerdleClient:
         button_elements = self._driver.find_elements("xpath", "//button")
         self._actions = dict((_parse_button_label(x), x) for x in button_elements)
 
+    def exit_welcome_screen(self):
+        close_button = [x for x in self._driver.find_elements("xpath", "//button[@aria-label='Home'][*[local-name() = 'svg']]") if
+         x.get_attribute("class") == "focus:outline-none"][0]
+        self._click(close_button)
+
     def input_guess(self, guess):
         for c in guess:
             self._insert(c)
@@ -67,6 +72,31 @@ class NerdleClient:
         print("\n".join("".join(row) for row in value))
         print("\n".join("".join(map(STATUS_STRING.get, row)) for row in status))
 
+    def play_game(self, solver, url, live: bool = True):
+        self.load(url)
+        if live:
+            self.exit_welcome_screen()
+        hint_generator = _NerdleWebHintGenerator(self)
+
+        guess = INITIAL_GUESS
+        guesses_left = MAX_GUESSES
+        hint_history = []
+        guess_history = [guess]
+        guess_key = solver.guess_key(guess)
+        success = False
+        while guesses_left > 0:
+            guesses_left -= 1
+            score = hint_generator(guess)
+            hint_history.append(score)
+            if solver.is_correct(score):
+                success = True
+                break
+            guess_key = solver.make_guess(guess_key, score)
+            guess = solver.guess_value(guess_key)
+            if guess is not None:
+                guess_history.append(guess)
+        return success, guess_history, hint_history
+
     def _wait_for_page_load(self):
         try:
             WebDriverWait(self._driver, 1).until(
@@ -79,6 +109,19 @@ class NerdleClient:
 
     def _click(self, button):
         self._driver.execute_script("arguments[0].click();", button)
+
+
+class _NerdleWebHintGenerator:
+    def __init__(self, client):
+        self._guess_num = 0
+        self._client = client
+
+    def __call__(self, guess: str):
+        self._client.input_guess(guess)
+        grid = self._client.grid_values()
+        hint = hints_to_score(grid[1][self._guess_num])
+        self._guess_num += 1
+        return hint
 
 
 def _parse_button_label(element):
