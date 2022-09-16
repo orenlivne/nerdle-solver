@@ -24,7 +24,7 @@ def solver_data():
 class TestWebClient:
     def setup_method(self, method):
         options = webdriver.ChromeOptions()
-        for option in ("disable-gpu", "window-size=1920,1080", "ignore-certificate-errors",
+        for option in ("headless", "disable-gpu", "window-size=1920,1080", "ignore-certificate-errors",
                        "no-sandbox", "disable-dev-shm-usage"):
             options.add_argument(option)
         driver = webdriver.Chrome(options=options)

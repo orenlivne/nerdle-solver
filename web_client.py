@@ -2,13 +2,16 @@
 """Downloads human benchmark data using Selenium."""
 import argparse
 import numpy as np
+import os
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from score import OPERATIONS, EQUALS, Hint, HINT_STRING, hints_to_score
+
+import nerdle
+from score import OPERATIONS, EQUALS, Hint, HINT_STRING, hints_to_score, score_to_hint_string
 
 
 # Send an expression.
@@ -155,7 +158,8 @@ def _parse_square(label):
 def parse_args():
     """Defines and parses command-line flags."""
     parser = argparse.ArgumentParser(description="Nerdle web client.")
-    parser.add_argument("--path", required=True, help="nerdle website.")
+    parser.add_argument("--path", required=True, help="Nerdle game website URL.")
+    parser.add_argument("--score_db", default="db/nerdle8.db", help="Path to score database file name.")
     return parser.parse_args()
 
 
@@ -163,8 +167,18 @@ if __name__ == "__main__":
     args = parse_args()
 
     options = webdriver.ChromeOptions()
-    options.add_argument('headless')
+    for option in ("headless", "disable-gpu", "window-size=1920,1080", "ignore-certificate-errors",
+                   "no-sandbox", "disable-dev-shm-usage"):
+        options.add_argument(option)
     driver = webdriver.Chrome(options=options)
 
-    driver.get(args.path)
+    os.makedirs(os.path.dirname(args.score_db), exist_ok=True)
+    solver_data = nerdle.create_solver_data(NUM_SLOTS, args.score_db)
+
     client = NerdleClient(driver)
+    solver = nerdle.NerdleSolver(solver_data)
+    success, guess_history, hint_history = client.play_game(solver, "https://nerdlegame.com", live=True)
+
+    print("Game result: {}, {} guesses".format("Success! :)" if success else "Failure :(", len(guess_history)))
+    for guess, hint in zip(guess_history, hint_history):
+        print("{} {}".format(guess, score_to_hint_string(hint, NUM_SLOTS)))
