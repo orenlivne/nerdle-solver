@@ -31,7 +31,7 @@ class TestWebClient:
 
     def test_button(self):
         self.driver.get("https://nerdlegame.com/20220913")
-        #self.wait_for_page_load()
+        self.wait_for_page_load()
         self.print_grid()
         button_elements = self.driver.find_elements("xpath", "//button")
         buttons = dict((parse_button_label(x), x) for x in button_elements)
@@ -47,12 +47,12 @@ class TestWebClient:
     def print_grid(self):
         print("\n".join("".join(row) for row in self.grid_values()))
 
-    # def wait_for_page_load(self):
-    #     try:
-    #         WebDriverWait(self.driver, 1).until(
-    #             EC.presence_of_element_located((By.CLASS_NAME, 'pb-grid')))
-    #     except TimeoutException:
-    #         raise TimeoutException("Loading took too much time!")
+    def wait_for_page_load(self):
+        try:
+            WebDriverWait(self.driver, 1).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'pb-grid')))
+        except TimeoutException:
+            raise TimeoutException("Loading took too much time!")
 
     def grid_values(self):
         square_elements = self.driver.find_elements("xpath", "//div[contains(@class, 'pb-grid')]//div[@role]")
