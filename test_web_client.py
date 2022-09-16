@@ -1,5 +1,7 @@
 """The first time this test is run, it builds the 8-slot Nerdle solver database, which takes several minutes. Subsequent
 test run times should be in the few seconds."""
+import os.path
+
 import numpy as np
 import pytest
 from selenium import webdriver
@@ -7,6 +9,7 @@ from numpy.testing import assert_array_equal
 
 import nerdle
 import web_client
+from score import score_to_hints
 from web_client import NUM_SLOTS, MAX_GUESSES
 
 SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(web_client.NUM_SLOTS)
@@ -14,6 +17,7 @@ SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(web_client.NUM_SLOTS)
 
 @pytest.fixture()
 def solver_data():
+    os.makedirs(os.path.dirname(SCORE_DB_MATRIX_FILE), exist_ok=True)
     return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_MATRIX_FILE)
 
 
@@ -42,17 +46,18 @@ class TestWebClient:
         self.client.load(url)
         grid = self.client.grid_values()
         self.client.print_grid(grid)
-        assert_array_equal(grid[0], np.full((MAX_GUESSES, NUM_SLOTS), web_client.STATUS_STRING[web_client.EMPTY]))
-        assert_array_equal(grid[1], np.full((MAX_GUESSES, NUM_SLOTS), web_client.EMPTY))
-        self.client.print_grid(self.client.grid_values())
-        guesses = [web_client.INITIAL_GUESS]
-        for num_guesses, (expression, expected_hint) in enumerate(zip(guesses, hint_history), 1):
-            for c in expression:
-                self.client.insert(c)
-            self.client.enter()
+        expected_value = np.full((MAX_GUESSES, NUM_SLOTS), web_client.STATUS_STRING[web_client.EMPTY])
+        expected_status = np.full((MAX_GUESSES, NUM_SLOTS), web_client.EMPTY)
+        assert_array_equal(grid[0], expected_value)
+        assert_array_equal(grid[1], expected_status)
+
+        for guess_num, (guess, expected_hint) in enumerate(zip(guess_history, hint_history)):
+            self.client.input_guess(guess)
 
             grid = self.client.grid_values()
             self.client.print_grid(grid)
-            assert_array_equal(grid[0],
-                               [list(guess) for guess in guesses[:num_guesses]] +
-                               [['.'] * NUM_SLOTS for _ in range(MAX_GUESSES - num_guesses)])
+
+            expected_value[guess_num] = list(guess)
+            expected_status[guess_num] = score_to_hints(expected_hint, web_client.NUM_SLOTS)
+            assert_array_equal(grid[0], expected_value)
+            assert_array_equal(grid[1], expected_status)

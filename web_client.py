@@ -49,11 +49,10 @@ class NerdleClient:
         button_elements = self._driver.find_elements("xpath", "//button")
         self._actions = dict((_parse_button_label(x), x) for x in button_elements)
 
-    def insert(self, symbol):
-        self._click(self._actions[symbol])
-
-    def enter(self):
-        self.insert(ENTER)
+    def input_guess(self, guess):
+        for c in guess:
+            self._insert(c)
+        self._insert(ENTER)
 
     def grid_values(self):
         square_elements = self._driver.find_elements("xpath", "//div[contains(@class, 'pb-grid')]//div[@role]")
@@ -74,6 +73,9 @@ class NerdleClient:
                 EC.presence_of_element_located((By.CLASS_NAME, 'pb-grid')))
         except TimeoutException:
             raise TimeoutException("Loading took too much time!")
+
+    def _insert(self, symbol):
+        self._click(self._actions[symbol])
 
     def _click(self, button):
         self._driver.execute_script("arguments[0].click();", button)
@@ -123,10 +125,3 @@ if __name__ == "__main__":
 
     driver.get(args.path)
     client = NerdleClient(driver)
-
-    print(client.square_location)
-    print(client.square_size)
-    print(client.grid_status())
-
-    client.write_text_in_square(0, 0, "9")
-    print(client.grid_status())

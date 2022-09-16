@@ -19,6 +19,7 @@ STRING_TO_HINT = {v: k for k, v in HINT_STRING.items()}
 OPERATIONS = "+-*/"
 EQUALS = "="
 
+
 def hints_to_score(hints):
     return functools.reduce(lambda x, y: x | y, (hint << (2 * idx) for idx, hint in enumerate(hints)), 0)
 

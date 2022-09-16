@@ -15,7 +15,7 @@ def score_guess(str guess, str answer):
     :param answer: Answer string.
     :return: Hint string, coded as a binary number. First 2 LSBs = first slot hint, etc.
     """
-    # Coded below uses the assumptions that INCORRECT=0 and there are 2 bits of feedback per hint.
+    # Coded below uses the assumptions that ABSENT=0 and there are 2 bits of feedback per hint.
 
     # iterates through guess and answer lists element-by-element. Whenever it finds a match,
     # removes the value from a copy of answer so that nothing is double counted.
@@ -34,12 +34,12 @@ def score_guess(str guess, str answer):
             idx_no_match[num_no_match] = idx
             num_no_match += 1
 
-    # Misplaced characters are flagged left-to-right, i.e., if there are two misplaced "1"s in the guess and one
-    # "1" in the answer, the first "1" in the guess will be misplaced, the second incorrect.
+    # PRESENT characters are flagged left-to-right, i.e., if there are two PRESENT "1"s in the guess and one
+    # "1" in the answer, the first "1" in the guess will be PRESENT, the second ABSENT.
     answer_no_match = answer_no_match[:num_no_match]
     for idx, guess_elem in zip(idx_no_match[:num_no_match], guess_no_match[:num_no_match]):
         if guess_elem in answer_no_match:
-            hints |= (Hint.MISPLACED << (2 * idx))
+            hints |= (Hint.PRESENT << (2 * idx))
             answer_no_match.remove(guess_elem)
 
     return hints

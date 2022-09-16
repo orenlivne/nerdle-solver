@@ -2,9 +2,9 @@
 #include <string>
 using namespace std;
 
-static const int INCORRECT = 0; // Nerdle black: not in the answer.
+static const int ABSENT = 0; // Nerdle black: not in the answer.
 static const int CORRECT = 1;   // Nerdle green: in the correct spot.
-static const int MISPLACED = 2; // Nerdle purple: in the answer, but not in the correct spot.
+static const int PRESENT = 2; // Nerdle purple: in the answer, but not in the correct spot.
 
 // This allows us to accommodate Nerdle with up to 8 slots, since this has 16 bits. This cuts down
 // storage in half; in the future set to int to solve with more slots.
@@ -25,7 +25,7 @@ SCORE score_guess(const char guess[MAX_SLOTS], const char answer[MAX_SLOTS]) {
     :param answer: Answer string.
     :return: Hint string, coded as a binary number. First 2 LSBs = first slot hint, etc.
     
-    Code below uses the assumptions that INCORRECT=0 (the default value of a hint 2-bit pair) and there
+    Code below uses the assumptions that ABSENT=0 (the default value of a hint 2-bit pair) and there
     are 2 bits of feedback per hint.
   */
   
@@ -49,8 +49,8 @@ SCORE score_guess(const char guess[MAX_SLOTS], const char answer[MAX_SLOTS]) {
     }
   }
 
-  // Misplaced characters are flagged left-to-right, i.e., if there are two misplaced "1"s in the guess and one
-  // "1" in the answer, the first "1" in the guess will be misplaced, the second incorrect.
+  // PRESENT characters are flagged left-to-right, i.e., if there are two PRESENT "1"s in the guess and one
+  // "1" in the answer, the first "1" in the guess will be PRESENT, the second ABSENT.
   // Note: only uses the first 'num_no_match' elements in the work arrays.
   // Truncate 'answer_no_match_str' to the first 'num_no_match' elements.
   answer_no_match[num_no_match] = '\0';
@@ -60,7 +60,7 @@ SCORE score_guess(const char guess[MAX_SLOTS], const char answer[MAX_SLOTS]) {
     int match_idx = answer_no_match.find(guess_elem);
     if (match_idx != string::npos) {
       // Found 'guess_elem' in the not-matched part of the answer.
-      hints |= (MISPLACED << (2 * idx));
+      hints |= (PRESENT << (2 * idx));
       answer_no_match.erase(match_idx, 1);
     }
   }
