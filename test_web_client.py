@@ -32,29 +32,32 @@ class TestWebClient:
     def test_button(self):
         self.driver.get("https://nerdlegame.com/20220913")
         #self.wait_for_page_load()
-        print("\n".join("".join(row) for row in self.grid_status()))
+        self.print_grid()
         button_elements = self.driver.find_elements("xpath", "//button")
         buttons = dict((parse_button_label(x), x) for x in button_elements)
         b = self.driver.find_element(By.XPATH, "//div[@id='root']/div/div[2]/div[2]/div[3]/div/button")
         for c in "9*8-7=65":
             self.click(buttons[c])
         self.click(buttons[ENTER])
-        print("\n".join("".join(row) for row in self.grid_status()))
+        self.print_grid()
 
     def click(self, button):
         self.driver.execute_script("arguments[0].click();", button)
 
-    def wait_for_page_load(self):
-        try:
-            WebDriverWait(self.driver, 1).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'pb-grid')))
-        except TimeoutException:
-            raise TimeoutException("Loading took too much time!")
+    def print_grid(self):
+        print("\n".join("".join(row) for row in self.grid_values()))
 
-    def grid_status(self):
+    # def wait_for_page_load(self):
+    #     try:
+    #         WebDriverWait(self.driver, 1).until(
+    #             EC.presence_of_element_located((By.CLASS_NAME, 'pb-grid')))
+    #     except TimeoutException:
+    #         raise TimeoutException("Loading took too much time!")
+
+    def grid_values(self):
         square_elements = self.driver.find_elements("xpath", "//div[contains(@class, 'pb-grid')]//div[@role]")
         square_elements = np.array(square_elements).reshape(6, 8)
-        return np.array([[parse_status(e.get_attribute("aria-label")) for e in row] for row in square_elements])
+        return np.array([[parse_square_value(e.get_attribute("aria-label")) for e in row] for row in square_elements])
 
 
 def parse_button_label(element):
@@ -65,7 +68,7 @@ def parse_label(label):
     return label.strip().replace("minus", "-")
 
 
-def parse_status(label):
+def parse_square_value(label):
     label = label.strip().split(" ")[0].lower()
     if label == "undefined":
         return "."

@@ -67,7 +67,9 @@ SCORE score_guess(const char guess[MAX_SLOTS], const char answer[MAX_SLOTS]) {
 
   return hints;
 }
- 
+
+
+// WIP: parallelize a loop over multiple score_guess() calls.
 #include <vector>
 #include <algorithm>
 #include <iostream>
