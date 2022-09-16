@@ -3,7 +3,7 @@ import collections
 import itertools
 from typing import Tuple, List
 
-from score import OPERATIONS
+from score import OPERATIONS, EQUALS
 
 
 def all_answers(num_slots: int, debug: bool = False) -> List[str]:
@@ -34,7 +34,7 @@ def all_answers(num_slots: int, debug: bool = False) -> List[str]:
                     result = eval(s)
                     if result_range[0] <= result < result_range[1] and \
                             (isinstance(result, int) or result.is_integer()):
-                        yield s + "=" + str(int(result))
+                        yield s + EQUALS + str(int(result))
 
 
 def diff(x: Tuple[int]) -> Tuple[int]:

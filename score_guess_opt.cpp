@@ -67,3 +67,38 @@ SCORE score_guess(const char guess[MAX_SLOTS], const char answer[MAX_SLOTS]) {
 
   return hints;
 }
+ 
+#include <vector>
+#include <algorithm>
+#include <iostream>
+
+void process(int &n) {
+}
+
+#ifdef __cplusplus
+extern "C" int parallel_for(int n) {
+#else
+int parallel_for(int n) {
+#endif
+  vector<int> nums{3, 4, 2, 8, 15, 267};
+  
+  auto print = [](const int& n) { cout << " " << n; };
+  
+  cout << "before:";
+  for_each(nums.cbegin(), nums.cend(), print);
+  cout << '\n';
+  
+  for_each(nums.begin(), nums.end(), [](int &n){ n++; });
+  
+  cout << "after:";
+  for_each(nums.cbegin(), nums.cend(), print);
+  cout << '\n';
+  
+  return 0;
+  
+}
+
+//std::for_each (mydata.begin(), mydata.end(), [&](double d) {
+// train(d, net);
+//  });
+  

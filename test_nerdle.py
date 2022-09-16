@@ -19,17 +19,11 @@ sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
 SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(NUM_SLOTS)
-SCORE_DB_SERIAL_FILE = "db/nerdle{}.serial.db".format(NUM_SLOTS)
 
 
 @pytest.fixture()
 def solver_data():
     return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_MATRIX_FILE)
-
-
-@pytest.fixture()
-def solver_data_serial():
-    return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_SERIAL_FILE, n_jobs=0)
 
 
 class TestNerdle:
@@ -66,20 +60,6 @@ class TestNerdle:
                hints_to_score((Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT, Hint.INCORRECT,
                                Hint.CORRECT, Hint.CORRECT, Hint.INCORRECT, Hint.INCORRECT))
 
-    def test_get_score_data_serial(self, solver_data_serial):
-        assert all(len(answer) == NUM_SLOTS for answer in solver_data_serial.answers)
-        num_answers = 206
-        assert len(solver_data_serial.answers) == num_answers
-        assert solver_data_serial.score_db.shape == (num_answers, num_answers)
-        assert_array_equal(solver_data_serial.score_db[0, :3], [1365, 2721, 2177])
-
-    def test_get_score_data(self, solver_data):
-        assert all(len(answer) == NUM_SLOTS for answer in solver_data.answers)
-        num_answers = 206
-        assert len(solver_data.answers) == num_answers
-        assert solver_data.score_db.shape == (num_answers, num_answers)
-        assert_array_equal(solver_data.score_db[0, :3], [1365, 2721, 2177])
-
     def test_generate_all_answers(self):
         assert all(len(answer) == NUM_SLOTS for answer in list(generator.all_answers(NUM_SLOTS)))
 
@@ -115,14 +95,6 @@ class TestNerdle:
         assert guess_history is not None
         assert len(guess_history) == 3
         assert guess_history[-1] == answer
-
-    def test_solve_serial(self, solver_data_serial):
-        run_solver(solver_data_serial, "4*7=28", "54/9=6", 3, debug=True)
-
-    # def test_solve_guess_sqlite(self):
-    #     # Guess = answer ==> one guess for a solve.
-    #     with nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_FILE + "_sqlite", strategy="sqlite") as solver_data:
-    #         run_solver(solver_data, "4*3=12", "10-5=5", 3)
 
     def test_parallelizing_loop_joblib(self):
         # This seems to be fine as a nested function, but for more complex examples, make the function

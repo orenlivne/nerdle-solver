@@ -35,13 +35,14 @@ import itertools
 import numpy as np
 import os
 import sys
-from joblib import Parallel, delayed
+#from joblib import Parallel, delayed
+#from numba import njit, jit
 from typing import Tuple, List, Optional, Set, Dict
 
 import generator
 from score import score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator, SCORE_GUESS_OPT_SO
-#sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)    # C++ implementation.
-import score_guess as sgo   # Cython implementation.
+sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)    # C++ implementation.
+#import score_guess as sgo   # Cython implementation.
 
 
 class NerdleData:
@@ -53,7 +54,7 @@ class NerdleData:
 
 
 class _NerdleDataMatrix(NerdleData):
-    """Encapsulates data structures required for the solver. Matrix implementation -- in-memory numpu array, loaded from
+    """Encapsulates data structures required for the solver. Matrix implementation -- in-memory numpy array, loaded from
     and saved to a h5py file."""
     def __init__(self, num_slots: int, file_name: str, overwrite: bool = False,
                  max_answers: Optional[int] = None, n_jobs: int = 2):
@@ -64,7 +65,7 @@ class _NerdleDataMatrix(NerdleData):
                 self.answers = sorted(generator.all_answers(self.num_slots))
                 if max_answers is not None:
                     self.answers = self.answers[:max_answers]
-                self.score_db = _NerdleDataMatrix._create_score_database(self.answers, n_jobs=n_jobs)
+                self.score_db = np.array(_NerdleDataMatrix._create_score_database(self.answers, n_jobs=n_jobs), dtype=int)
                 # Storing answers as bytearray since h5py does not support numpy strings.
                 # TODO: just work with bytearrays instead of strings everywhere.
                 f.create_dataset("answers", data=np.array([x.encode() for x in self.answers]))
@@ -76,23 +77,23 @@ class _NerdleDataMatrix(NerdleData):
                 self.score_db = f["score_db"][:, :]
 
     @staticmethod
+    #@jit(parallel=True)
     def _create_score_database(answers, n_jobs: int = 2):
         # default dict avoids storing keys as tuple, saves lookup time
         n = len(answers)
         print_frequency = n // 20
-        score_db = np.zeros((n, n), dtype=int)
+        score_db = [[0] * n for _ in range(n)]
         for i, guess in enumerate(answers):
-            print("i", i)
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
-            guess_encoded = str(guess)
-            if n_jobs == 0:
-                # Serial version
-                score_db[i] = [sgo.score_guess(guess_encoded, str(answer)) for answer in answers]
-            else:
-                # Parallel version with joblib:
-                score_db[i] = Parallel(n_jobs=n_jobs)(delayed(_score_guess)(str(guess_encoded), str(answer))
-                                                      for answer in answers)
+            guess_encoded = str(guess).encode()
+            # if n_jobs == 0:
+            #     # Serial version
+            score_db[i] = [sgo.score_guess(guess_encoded, str(answer).encode()) for answer in answers]
+            # else:
+            #     # Parallel version with joblib:
+            #     score_db[i] = Parallel(n_jobs=n_jobs)(delayed(_score_guess)(str(guess_encoded), str(answer))
+            #                                           for answer in answers)
         return score_db
 
     @property
@@ -140,7 +141,7 @@ class NerdleSolver:
 
     def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
               debug: bool = False) -> Tuple[List[str], List[int], List[int]]:
-        return self.solve_adversary(lambda guess: sgo.score_guess(str(guess), str(answer)),
+        return self.solve_adversary(lambda guess: sgo.score_guess(str(guess).encode(), str(answer).encode()),
                                     max_guesses=max_guesses, initial_guess=initial_guess, debug=debug)
 
     def solve_adversary(self, hint_generator, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
@@ -197,9 +198,10 @@ class NerdleSolver:
 
 def parse_args():
     """Defines and parses command-line flags."""
-    parser = argparse.ArgumentParser(description="Nerdle Solver.")
+    parser = argparse.ArgumentParser(description="Nerdle Solver database craetor.")
     parser.add_argument("--num_slots", default=6, type=int, help="Number of slots in answer.")
     parser.add_argument("--score_db", default="nerdle.db", help="Path to score database file name.")
+    parser.add_argument("--num_jobs", default=0, type=int, help="Number of parallel jobs.")
     return parser.parse_args()
 
 
@@ -215,22 +217,5 @@ def _score_guess(guess, answer):
 
 
 if __name__ == "__main__":
-    args = parse_args()
-
-    # Create/load solver data.
-    solver_data = create_solver_data(args.num_slots, args.score_db)
-
-    print("Loaded: slots {} answers {} score_db size {}".format(
-        solver_data.num_slots, len(solver_data.score_db), len(solver_data.score_db.items())))
-
-    initial_guess = "10-5=5"
-    # answer = "4*3=12"
-    # guess_history, hint_history, answer_size_history = NerdleSolver(solver_data).solve(answer, initial_guess=initial_guess, debug=True)
-
-    def hint_generator(guess):
-        hint_str = input("> ")
-        return hint_string_to_score(hint_str)
-
-    hint_generator = FileHintGenerator(sys.stdin)
-    guess_history, hint_history, answer_size_history = NerdleSolver(solver_data).solve_adversary(hint_generator.__call__, initial_guess=initial_guess, debug=True)
-
+   args = parse_args()
+   solver_data_cy = create_solver_data(args.num_slots, args.score_db, overwrite=True, n_jobs=args.num_jobs)
