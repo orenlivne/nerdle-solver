@@ -47,7 +47,8 @@ class NerdleData:
     """Encapsulates data structures required for the solver. Matrix implementation -- in-memory numpy array, loaded from
     and saved to a h5py file."""
     def __init__(self, num_slots: int, file_name: str, overwrite: bool = False,
-                 max_answers: Optional[int] = None, num_processes: Optional[int] = None):
+                 max_answers: Optional[int] = None, num_processes: Optional[int] = None,
+                 min_parallel_n: int = 2000):
         """num_processes = 0 --> serial run."""
         self.num_slots = num_slots
         self._file_name = file_name
@@ -57,9 +58,12 @@ class NerdleData:
                 self.answers = sorted(generator.all_answers(self.num_slots))
                 if max_answers is not None:
                     self.answers = self.answers[:max_answers]
-                create_score_database = NerdleData._create_score_database_parallel \
-                    if num_processes == 0 or len(self.answers) <= min_parallel_n else NerdleData._create_score_database_serial
-                self.score_db = np.array(create_score_database(self.answers, num_processes=num_processes), dtype=int)
+                if num_processes == 0 or len(self.answers) <= min_parallel_n:
+                    create_score_database = NerdleData._create_score_database_serial
+                else:
+                    create_score_database = \
+                        lambda answers: NerdleData._create_score_database_parallel(answers, num_processes=num_processes)
+                self.score_db = np.array(create_score_database(self.answers), dtype=int)
                 # Storing answers as bytearray since h5py does not support numpy strings.
                 # TODO: just work with bytearrays instead of strings everywhere.
                 f.create_dataset("answers", data=np.array([x.encode() for x in self.answers]))
@@ -211,9 +215,11 @@ def parse_args():
 
 
 def create_solver_data(num_slots: int, file_name: str, overwrite: bool = False,
-                       max_answers: Optional[int] = None, num_processes: int = 2) -> NerdleData:
+                       max_answers: Optional[int] = None, num_processes: int = 2,
+                       min_parallel_n: int = 2000) -> NerdleData:
     """Creates/load solver data from existing h5py database file."""
-    return NerdleData(num_slots, file_name, overwrite=overwrite, max_answers=max_answers, num_processes=num_processes)
+    return NerdleData(num_slots, file_name, overwrite=overwrite, max_answers=max_answers,
+                      num_processes=num_processes, min_parallel_n=min_parallel_n)
 
 
 def _score_guess(args):

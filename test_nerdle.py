@@ -17,16 +17,31 @@ sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)
 
 # By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
 NUM_SLOTS = 6
-SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(NUM_SLOTS)
 
 
 @pytest.fixture()
 def solver_data():
-    os.makedirs(os.path.dirname(SCORE_DB_MATRIX_FILE), exist_ok=True)
-    return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_MATRIX_FILE)
+    return ncreate_solver_data(NUM_SLOTS)
+
+
+def create_solver_data(num_slots: int, min_parallel_n: int = 2000):
+    file_name = "db/nerdle{}.db".format(num_slots)
+    os.makedirs(os.path.dirname(file_name), exist_ok=True)
+    return nerdle.create_solver_data(num_slots, file_name, overwrite=True, min_parallel_n=min_parallel_n)
 
 
 class TestNerdle:
+    def test_solver_data(self):
+        n = 206
+
+        # Serial version.
+        solver_data = create_solver_data(6, min_parallel_n=2 * n)
+        assert solver_data.score_db.shape == (n, n)
+
+        # Parallel version.
+        solver_data = create_solver_data(6, min_parallel_n=n // 2)
+        assert solver_data.score_db.shape == (n, n)
+
     def test_solve(self, solver_data):
         run_solver(solver_data, "4*7=28", "54/9=6", 3)
         run_solver(solver_data, "4*3=12", "54/9=6", 4)
