@@ -31,6 +31,7 @@ class Node:
 
 class GameTreeBuilder:
     def __init__(self, solver_data):
+        self._solver_data = solver_data
         self._score_db = solver_data.score_db.copy()
         self._solver = nerdle.NerdleSolver(solver_data)
         self._all_keys = solver_data.all_keys
@@ -54,10 +55,12 @@ class GameTreeBuilder:
         else:
             answers = np.arange(len(node.answers))
             score = node.score
+            # TODO: instead of explicitly creating the entire tree, which will consume O(n^3) memory,
+            # use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path.
             info = [_score_dict(answers, score, k) for k in self._all_keys]
-            k_opt = min((max(map(len, info_k.values())), k not in answers, k)
-                        for k, info_k in zip(self._all_keys, info))[-1]
-            node.key = k_opt
+            bucket_size, _, k_opt = min((max(map(len, info_k.values())), k not in answers, k)
+                        for k, info_k in zip(self._all_keys, info))
+            node.key = (k_opt, self._solver_data.answers[node.answer_key(k_opt)], bucket_size)
             node.children = [Node(None, np.array(bucket), score[:, bucket], [
             ], hint=hint, parent=node) for hint, bucket in info[k_opt].items()]
 
@@ -85,7 +88,7 @@ def pre_traversal(
         depth: int = 0,
         debug: bool = False):
     process_node(node)
-    if debug:
+    if debug and depth <= 1:
         print("\t" * depth, node)
     for child in node.children:
         pre_traversal(child, process_node, depth=depth + 1, debug=debug)

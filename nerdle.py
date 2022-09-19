@@ -141,9 +141,6 @@ class NerdleData:
         answer_index = np.arange(score_db.shape[1], dtype=int)
         return score_db, answer_index
 
-    def score_values(self, score_db):
-        return score_db
-
 
 class NerdleSolver:
     """
@@ -243,7 +240,7 @@ class NerdleSolver:
         # TODO: a possible improvement is to weight the counts by bigram conditional probabilities (how likely a
         #  character is to appear after another in the current answer set).
         return min(
-            (max(collections.Counter(self._data.score_values(self._score_db[guess_key])).values()),
+            (max(collections.Counter(self._score_db[guess_key]).values()),
              guess_key not in self._answer_keys,
              guess_key)
             for guess_key in self._all_keys
