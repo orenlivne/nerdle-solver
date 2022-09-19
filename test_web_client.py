@@ -46,5 +46,4 @@ class TestWebClient:
         solver = nerdle.NerdleSolver(solver_data)
         success, guess_history, hint_history = self.client.play_game(solver, "https://nerdlegame.com", live=True)
         assert success
-        assert guess_history == ['9*8-7=65', '18/3+2=8', '66/6-8=3']
-        assert [score_to_hint_string(hint, NUM_SLOTS) for hint in hint_history] == ['--??-??-', '-?+?--+-', '++++++++']
+        assert len(guess_history) <= 4

@@ -30,29 +30,28 @@ class TestParallel:
     def test_parallel_map(self):
         with multiprocessing.Pool(processes=4) as pool:
             # print "[0, 1, 4,..., 81]"
-            assert pool.map(f, range(10)) == [x * x for x in range(10)]
+            assert pool.map(square, range(10)) == [x * x for x in range(10)]
 
     def test_parallel_starmap(self):
         a_args = [1, 2, 3]
         second_arg = 1
         with multiprocessing.Pool(processes=4) as pool:
-            assert pool.starmap(func, zip(a_args, repeat(second_arg))) == [2, 3, 4]
+            assert pool.starmap(add, zip(a_args, itertools.repeat(second_arg))) == [2, 3, 4]
 
-    @pytest.mark.skip(reason="WIP")
-    def test_parallel_starmap(self):
+    def test_parallel_starmap_strings(self):
         guess = b"54/9=6"
         answer = "4*7=28"
-        answers = [answer for answer in range(3)]
+        n = 1000
+        answers = [answer for _ in range(n)]
         with multiprocessing.Pool(processes=4) as pool:
-            # print "[0, 1, 4,..., 81]"
-            assert pool.map(process, answers) == [x * x for x in range(3)]
+            assert pool.starmap(process, zip(itertools.repeat(guess), answers)) == [520] * n
 
 
-def f(x):
+def square(x):
     return x * x
 
 
-def g(a, b):
+def add(a, b):
     return a + b
 
 

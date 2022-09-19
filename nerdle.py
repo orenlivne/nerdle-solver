@@ -211,8 +211,10 @@ def create_solver_data(num_slots: int, file_name: str, overwrite: bool = False,
     return NerdleData(num_slots, file_name, overwrite=overwrite, max_answers=max_answers, n_jobs=n_jobs)
 
 
-def _score_guess(guess, answer):
-    return sgo.score_guess(guess, answer)
+def _score_guess(args):
+    guess, answer = args
+    """Must be a top-level function (closure) to be pickeable and used within a multiprocessing pool."""
+    return sgo.score_guess(guess, str(answer).encode())
 
 
 class Node:
