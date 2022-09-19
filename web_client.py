@@ -26,9 +26,12 @@ EMPTY = 3
 NUM_SLOTS = 8
 MAX_GUESSES = 6
 # We use a fixed initial guess to play.
-INITIAL_GUESS="9*8-7=65"
+INITIAL_GUESS = "9*8-7=65"
 
-BUTTON_LABEL_TO_HINT = {"absent": Hint.ABSENT, "present": Hint.PRESENT, "correct": Hint.CORRECT}
+BUTTON_LABEL_TO_HINT = {
+    "absent": Hint.ABSENT,
+    "present": Hint.PRESENT,
+    "correct": Hint.CORRECT}
 STATUS_STRING = dict(list(HINT_STRING.items()) + [(EMPTY, ".")])
 
 
@@ -50,11 +53,14 @@ class NerdleClient:
         self._driver.get(url)
         self._wait_for_page_load()
         button_elements = self._driver.find_elements("xpath", "//button")
-        self._actions = dict((_parse_button_label(x), x) for x in button_elements)
+        self._actions = dict((_parse_button_label(x), x)
+                             for x in button_elements)
 
     def exit_welcome_screen(self):
-        close_button = [x for x in self._driver.find_elements("xpath", "//button[@aria-label='Home'][*[local-name() = 'svg']]") if
-         x.get_attribute("class") == "focus:outline-none"][0]
+        close_button = [
+            x for x in self._driver.find_elements(
+                "xpath",
+                "//button[@aria-label='Home'][*[local-name() = 'svg']]") if x.get_attribute("class") == "focus:outline-none"][0]
         self._click(close_button)
 
     def input_guess(self, guess):
@@ -63,9 +69,11 @@ class NerdleClient:
         self._insert(ENTER)
 
     def grid_values(self):
-        square_elements = self._driver.find_elements("xpath", "//div[contains(@class, 'pb-grid')]//div[@role]")
+        square_elements = self._driver.find_elements(
+            "xpath", "//div[contains(@class, 'pb-grid')]//div[@role]")
         square_elements = np.array(square_elements).reshape(6, 8)
-        info = [[_parse_square(e.get_attribute(SQUARE_ATTRIBUTE)) for e in row] for row in square_elements]
+        info = [[_parse_square(e.get_attribute(SQUARE_ATTRIBUTE))
+                 for e in row] for row in square_elements]
         value = np.array([[x[0] for x in row] for row in info])
         status = np.array([[x[1] for x in row] for row in info], dtype=int)
         return value, status
@@ -73,7 +81,8 @@ class NerdleClient:
     def print_grid(self, grid_values):
         value, status = grid_values
         print("\n".join("".join(row) for row in value))
-        print("\n".join("".join(map(STATUS_STRING.get, row)) for row in status))
+        print("\n".join("".join(map(STATUS_STRING.get, row))
+              for row in status))
 
     def play_game(self, solver, url, live: bool = True):
         self.load(url)
@@ -128,7 +137,8 @@ class _NerdleWebHintGenerator:
 
 
 def _parse_button_label(element):
-    return element.get_attribute(SQUARE_ATTRIBUTE).strip().replace("minus", "-")
+    return element.get_attribute(
+        SQUARE_ATTRIBUTE).strip().replace("minus", "-")
 
 
 def _parse_square(label):
@@ -147,7 +157,8 @@ def _parse_square(label):
     if value == "undefined":
         value = "."
     elif value in SYMBOLS:
-        # Nothing to do here, value string is the desired output, e.g., "1" or "+".
+        # Nothing to do here, value string is the desired output, e.g., "1" or
+        # "+".
         pass
     else:
         value = "?"
@@ -158,8 +169,14 @@ def _parse_square(label):
 def parse_args():
     """Defines and parses command-line flags."""
     parser = argparse.ArgumentParser(description="Nerdle web client.")
-    parser.add_argument("--path", required=True, help="Nerdle game website URL.")
-    parser.add_argument("--score_db", default="db/nerdle8.db", help="Path to score database file name.")
+    parser.add_argument(
+        "--path",
+        required=True,
+        help="Nerdle game website URL.")
+    parser.add_argument(
+        "--score_db",
+        default="db/nerdle8.db",
+        help="Path to score database file name.")
     return parser.parse_args()
 
 
@@ -167,8 +184,13 @@ if __name__ == "__main__":
     args = parse_args()
 
     options = webdriver.ChromeOptions()
-    for option in ("headless", "disable-gpu", "window-size=1920,1080", "ignore-certificate-errors",
-                   "no-sandbox", "disable-dev-shm-usage"):
+    for option in (
+        "headless",
+        "disable-gpu",
+        "window-size=1920,1080",
+        "ignore-certificate-errors",
+        "no-sandbox",
+            "disable-dev-shm-usage"):
         options.add_argument(option)
     driver = webdriver.Chrome(options=options)
 
@@ -177,8 +199,12 @@ if __name__ == "__main__":
 
     client = NerdleClient(driver)
     solver = nerdle.NerdleSolver(solver_data)
-    success, guess_history, hint_history = client.play_game(solver, "https://nerdlegame.com", live=True)
+    success, guess_history, hint_history = client.play_game(
+        solver, "https://nerdlegame.com", live=True)
 
-    print("Game result: {}, {} guesses".format("Success! :)" if success else "Failure :(", len(guess_history)))
+    print(
+        "Game result: {}, {} guesses".format(
+            "Success! :)" if success else "Failure :(",
+            len(guess_history)))
     for guess, hint in zip(guess_history, hint_history):
         print("{} {}".format(guess, score_to_hint_string(hint, NUM_SLOTS)))

@@ -15,19 +15,24 @@ from nerdle import NerdleData
 from score import Hint, hints_to_score, hint_string_to_score, SCORE_GUESS_OPT_SO
 sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)
 
-# By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
+# By default, all tests are for mini-nerdle unless #slots explicitly
+# stated in a test function.
 NUM_SLOTS = 6
 
 
 @pytest.fixture()
 def solver_data():
-    return ncreate_solver_data(NUM_SLOTS)
+    return create_solver_data(NUM_SLOTS)
 
 
-def create_solver_data(num_slots: int, min_parallel_n: int = 2000):
+def create_solver_data(num_slots: int, min_parallel_n: int = 20000):
     file_name = "db/nerdle{}.db".format(num_slots)
     os.makedirs(os.path.dirname(file_name), exist_ok=True)
-    return nerdle.create_solver_data(num_slots, file_name, overwrite=True, min_parallel_n=min_parallel_n)
+    return nerdle.create_solver_data(
+        num_slots,
+        file_name,
+        overwrite=True,
+        min_parallel_n=min_parallel_n)
 
 
 class TestNerdle:
@@ -63,16 +68,22 @@ class TestNerdle:
         hint_generator = s.FileHintGenerator(io.StringIO("\n".join(hints)))
 
         solver = nerdle.NerdleSolver(solver_data)
-        guess_history, hint_history, answer_size_history = solver.solve_adversary(hint_generator.__call__,
-                                                                                  initial_guess=initial_guess)
+        guess_history, hint_history, answer_size_history = solver.solve_adversary(
+            hint_generator.__call__, initial_guess=initial_guess)
         assert guess_history is not None
         assert len(guess_history) == 3
         assert guess_history[-1] == answer
 
 
-def run_solver(solver_data, answer, initial_guess, num_guesses, debug: bool = False):
+def run_solver(
+        solver_data,
+        answer,
+        initial_guess,
+        num_guesses,
+        debug: bool = False):
     solver = nerdle.NerdleSolver(solver_data)
-    guess_history, hint_history, answer_size_history = solver.solve(answer, initial_guess=initial_guess, debug=debug)
+    guess_history, hint_history, answer_size_history = solver.solve(
+        answer, initial_guess=initial_guess, debug=debug)
     assert guess_history is not None
     assert len(guess_history) == num_guesses
     assert guess_history[-1] == answer

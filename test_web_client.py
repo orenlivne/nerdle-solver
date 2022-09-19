@@ -24,8 +24,13 @@ def solver_data():
 class TestWebClient:
     def setup_method(self, method):
         options = webdriver.ChromeOptions()
-        for option in ("headless", "disable-gpu", "window-size=1920,1080", "ignore-certificate-errors",
-                       "no-sandbox", "disable-dev-shm-usage"):
+        for option in (
+            "headless",
+            "disable-gpu",
+            "window-size=1920,1080",
+            "ignore-certificate-errors",
+            "no-sandbox",
+                "disable-dev-shm-usage"):
             options.add_argument(option)
         driver = webdriver.Chrome(options=options)
         self.client = web_client.NerdleClient(driver)
@@ -37,13 +42,21 @@ class TestWebClient:
         # Answer taken from the Nerdle archive:
         # https://www.dexerto.com/gaming/daily-nerdle-answers-todays-nerdle-equation-1836105/
         solver = nerdle.NerdleSolver(solver_data)
-        success, guess_history, hint_history = self.client.play_game(solver, "https://nerdlegame.com/20220913", live=False)
+        success, guess_history, hint_history = self.client.play_game(
+            solver, "https://nerdlegame.com/20220913", live=False)
         assert success
         assert guess_history == ['9*8-7=65', '14+18=32', '2+1+8=11']
-        assert [score_to_hint_string(hint, NUM_SLOTS) for hint in hint_history] == ['--?--+--', '?-??++-?', '++++++++']
+        assert [
+            score_to_hint_string(
+                hint,
+                NUM_SLOTS) for hint in hint_history] == [
+            '--?--+--',
+            '?-??++-?',
+            '++++++++']
 
     def test_live_game(self, solver_data):
         solver = nerdle.NerdleSolver(solver_data)
-        success, guess_history, hint_history = self.client.play_game(solver, "https://nerdlegame.com", live=True)
+        success, guess_history, hint_history = self.client.play_game(
+            solver, "https://nerdlegame.com", live=True)
         assert success
         assert len(guess_history) <= 4

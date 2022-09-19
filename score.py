@@ -10,7 +10,8 @@ class Hint:
     """Hint codes."""
     ABSENT = 0       # Nerdle black: not in the answer.
     CORRECT = 1         # Nerdle green: in the correct spot.
-    PRESENT = 2       # Nerdle purple: in the answer, but not in the correct spot.
+    # Nerdle purple: in the answer, but not in the correct spot.
+    PRESENT = 2
 
 
 HINT_STRING = {Hint.ABSENT: "-", Hint.CORRECT: "+", Hint.PRESENT: "?"}
@@ -22,15 +23,18 @@ EQUALS = "="
 
 
 def hints_to_score(hints):
-    return functools.reduce(lambda x, y: x | y, (hint << (2 * idx) for idx, hint in enumerate(hints)), 0)
+    return functools.reduce(lambda x, y: x | y, (hint << (2 * idx)
+                            for idx, hint in enumerate(hints)), 0)
 
 
 def score_to_hints(score, num_slots):
-    return [int("".join(x), 2) for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2)][::-1]
+    return [int("".join(x), 2)
+            for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2)][::-1]
 
 
 def score_to_hint_string(score, num_slots):
-    return "".join(HINT_STRING[int("".join(x), 2)] for x in grouper(bin(score)[2:].zfill(2 * num_slots), 2))[::-1]
+    return "".join(HINT_STRING[int("".join(x), 2)] for x in grouper(
+        bin(score)[2:].zfill(2 * num_slots), 2))[::-1]
 
 
 def hint_string_to_score(hint_str: str):

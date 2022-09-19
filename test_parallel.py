@@ -16,7 +16,8 @@ import score_guess as sg
 from nerdle import NerdleData
 sgo = ctypes.CDLL(s.SCORE_GUESS_OPT_SO)
 
-# By default, all tests are for mini-nerdle unless #slots explicitly stated in a test function.
+# By default, all tests are for mini-nerdle unless #slots explicitly
+# stated in a test function.
 GUESS = "54/9=6"
 NUM_SLOTS = 6
 SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(NUM_SLOTS)
@@ -38,15 +39,18 @@ class TestParallel:
         a_args = [1, 2, 3]
         second_arg = 1
         with multiprocessing.Pool(processes=4) as pool:
-            assert pool.starmap(add, zip(a_args, itertools.repeat(second_arg))) == [2, 3, 4]
+            assert pool.starmap(
+                add, zip(
+                    a_args, itertools.repeat(second_arg))) == [
+                2, 3, 4]
 
     def test_starmap_score_guess(self):
         guess = "54/9=6"
         answer = "4*7=28"
         n = 1000
         with multiprocessing.Pool(processes=4) as pool:
-            assert pool.starmap(process, itertools.product(
-                itertools.repeat(guess, n), itertools.repeat(answer, n))) == [520] * (n ** 2)
+            assert pool.starmap(process, itertools.product(itertools.repeat(
+                guess, n), itertools.repeat(answer, n))) == [520] * (n ** 2)
 
 
 def square(x):

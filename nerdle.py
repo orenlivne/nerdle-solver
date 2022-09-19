@@ -46,9 +46,15 @@ sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)    # C++ implementation.
 class NerdleData:
     """Encapsulates data structures required for the solver. Matrix implementation -- in-memory numpy array, loaded from
     and saved to a h5py file."""
-    def __init__(self, num_slots: int, file_name: str, overwrite: bool = False,
-                 max_answers: Optional[int] = None, num_processes: Optional[int] = None,
-                 min_parallel_n: int = 2000):
+
+    def __init__(
+            self,
+            num_slots: int,
+            file_name: str,
+            overwrite: bool = False,
+            max_answers: Optional[int] = None,
+            num_processes: Optional[int] = None,
+            min_parallel_n: int = 20000):
         """num_processes = 0 --> serial run."""
         self.num_slots = num_slots
         self._file_name = file_name
@@ -61,12 +67,16 @@ class NerdleData:
                 if num_processes == 0 or len(self.answers) <= min_parallel_n:
                     create_score_database = NerdleData._create_score_database_serial
                 else:
-                    create_score_database = \
-                        lambda answers: NerdleData._create_score_database_parallel(answers, num_processes=num_processes)
-                self.score_db = np.array(create_score_database(self.answers), dtype=int)
+                    def create_score_database(answers): return NerdleData._create_score_database_parallel(
+                        answers, num_processes=num_processes)
+                self.score_db = np.array(
+                    create_score_database(
+                        self.answers), dtype=int)
                 # Storing answers as bytearray since h5py does not support numpy strings.
-                # TODO: just work with bytearrays instead of strings everywhere.
-                f.create_dataset("answers", data=np.array([x.encode() for x in self.answers]))
+                # TODO: just work with bytearrays instead of strings
+                # everywhere.
+                f.create_dataset("answers", data=np.array(
+                    [x.encode() for x in self.answers]))
                 f.create_dataset("score_db", data=self.score_db)
                 self.answers = np.array(self.answers)
         else:
@@ -75,12 +85,15 @@ class NerdleData:
                 self.score_db = f["score_db"][:, :]
 
     @staticmethod
-    def _create_score_database_parallel(answers, num_processes: Optional[int] = None):
+    def _create_score_database_parallel(
+            answers, num_processes: Optional[int] = None):
         n = len(answers)
         if num_processes is None:
             num_processes = multiprocessing.cpu_count()
         with multiprocessing.Pool(processes=num_processes) as pool:
-            score = pool.map(_score_guess, itertools.product(answers, repeat=2))
+            score = pool.map(
+                _score_guess, itertools.product(
+                    answers, repeat=2))
             return np.array(score).reshape(n, n)
 
     @staticmethod
@@ -93,7 +106,10 @@ class NerdleData:
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
             guess_encoded = str(guess).encode()
-            score_db[i] = [sgo.score_guess(guess_encoded, str(answer).encode()) for answer in answers]
+            score_db[i] = [
+                sgo.score_guess(
+                    guess_encoded,
+                    str(answer).encode()) for answer in answers]
         return score_db
 
     @property
@@ -110,7 +126,13 @@ class NerdleData:
     def value(self, guess_key: int) -> str:
         return self.answers[guess_key]
 
-    def answers_of_score(self, guess: int, score_db, answers: np.ndarray, answer_keys: np.ndarray, score: int):
+    def answers_of_score(
+            self,
+            guess: int,
+            score_db,
+            answers: np.ndarray,
+            answer_keys: np.ndarray,
+            score: int):
         index = np.where(score_db[guess, answers] == score)[0]
         return index, answer_keys[index]
 
@@ -128,6 +150,7 @@ class NerdleSolver:
     Solves a Nerdle game.
     Note: modifies the internal data structures during solve() calls, so cannot be reused after solve() is called.
     """
+
     def __init__(self, data: NerdleData):
         self._data = data
         # A working copy of data.score_db entries modified within solve().
@@ -139,10 +162,20 @@ class NerdleSolver:
         self._num_slots = len(next(iter(self._all_answers)))
         self._all_correct = hints_to_score([Hint.CORRECT] * self._num_slots)
 
-    def solve(self, answer: str, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
-              debug: bool = False) -> Tuple[List[str], List[int], List[int]]:
-        return self.solve_adversary(lambda guess: sgo.score_guess(str(guess).encode(), str(answer).encode()),
-                                    max_guesses=max_guesses, initial_guess=initial_guess, debug=debug)
+    def solve(self,
+              answer: str,
+              max_guesses: int = 6,
+              initial_guess: str = "0+12/3=4",
+              debug: bool = False) -> Tuple[List[str],
+                                            List[int],
+                                            List[int]]:
+        return self.solve_adversary(
+            lambda guess: sgo.score_guess(
+                str(guess).encode(),
+                str(answer).encode()),
+            max_guesses=max_guesses,
+            initial_guess=initial_guess,
+            debug=debug)
 
     def guess_key(self, guess):
         return self._data.key(guess)
@@ -153,8 +186,13 @@ class NerdleSolver:
     def is_correct(self, score):
         return score == self._all_correct
 
-    def solve_adversary(self, hint_generator, max_guesses: int = 6, initial_guess: str = "0+12/3=4",
-                debug: bool = False) -> Tuple[List[str], List[int], List[int]]:
+    def solve_adversary(self,
+                        hint_generator,
+                        max_guesses: int = 6,
+                        initial_guess: str = "0+12/3=4",
+                        debug: bool = False) -> Tuple[List[str],
+                                                      List[int],
+                                                      List[int]]:
         guesses_left = max_guesses
         hint_history = []
         answer_size_history = []
@@ -163,14 +201,20 @@ class NerdleSolver:
         guess_history = [guess]
 
         while guesses_left > 0:
-            # reduce amount of possible answers by checking answer against guess and score.
+            # reduce amount of possible answers by checking answer against
+            # guess and score.
             guesses_left -= 1
             if debug:
                 print("--> guess {} guesses_left {}".format(guess, guesses_left))
             score = hint_generator(guess)
             hint_history.append(score)
             if debug:
-                print("score {} {}".format(score_to_hint_string(score, self._num_slots), score))
+                print(
+                    "score {} {}".format(
+                        score_to_hint_string(
+                            score,
+                            self._num_slots),
+                        score))
             if self.is_correct(score):
                 return guess_history, hint_history, answer_size_history
             guess_key = self.make_guess(guess_key, score)
@@ -189,7 +233,8 @@ class NerdleSolver:
         # so it does not override self.score_db.
         self._answers, self._answer_keys = self._data.answers_of_score(
             guess, self._score_db, self._answers, self._answer_keys, score)
-        self._score_db, self._answers = self._data.restrict_by_answers(self._score_db, self._answers)
+        self._score_db, self._answers = self._data.restrict_by_answers(
+            self._score_db, self._answers)
         if score == self._all_correct:
             return None
         # Make the next guess.
@@ -207,19 +252,37 @@ class NerdleSolver:
 
 def parse_args():
     """Defines and parses command-line flags."""
-    parser = argparse.ArgumentParser(description="Nerdle Solver database craetor.")
-    parser.add_argument("--num_slots", default=6, type=int, help="Number of slots in answer.")
-    parser.add_argument("--score_db", default="nerdle.db", help="Path to score database file name.")
-    parser.add_argument("--num_jobs", default=0, type=int, help="Number of parallel jobs.")
+    parser = argparse.ArgumentParser(
+        description="Nerdle Solver database craetor.")
+    parser.add_argument("--num_slots", default=6, type=int,
+                        help="Number of slots in answer.")
+    parser.add_argument(
+        "--score_db",
+        default="nerdle.db",
+        help="Path to score database file name.")
+    parser.add_argument(
+        "--num_jobs",
+        default=0,
+        type=int,
+        help="Number of parallel jobs.")
     return parser.parse_args()
 
 
-def create_solver_data(num_slots: int, file_name: str, overwrite: bool = False,
-                       max_answers: Optional[int] = None, num_processes: int = 2,
-                       min_parallel_n: int = 2000) -> NerdleData:
+def create_solver_data(
+        num_slots: int,
+        file_name: str,
+        overwrite: bool = False,
+        max_answers: Optional[int] = None,
+        num_processes: int = 2,
+        min_parallel_n: int = 20000) -> NerdleData:
     """Creates/load solver data from existing h5py database file."""
-    return NerdleData(num_slots, file_name, overwrite=overwrite, max_answers=max_answers,
-                      num_processes=num_processes, min_parallel_n=min_parallel_n)
+    return NerdleData(
+        num_slots,
+        file_name,
+        overwrite=overwrite,
+        max_answers=max_answers,
+        num_processes=num_processes,
+        min_parallel_n=min_parallel_n)
 
 
 def _score_guess(args):
@@ -235,5 +298,9 @@ class Node:
 
 
 if __name__ == "__main__":
-   args = parse_args()
-   solver_data_cy = create_solver_data(args.num_slots, args.score_db, overwrite=True, num_processes=args.num_jobs)
+    args = parse_args()
+    solver_data_cy = create_solver_data(
+        args.num_slots,
+        args.score_db,
+        overwrite=True,
+        num_processes=args.num_jobs)
