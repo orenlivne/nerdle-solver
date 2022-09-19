@@ -8,7 +8,6 @@ import pytest
 #from joblib import Parallel, delayed, wrap_non_picklable_objects
 from numpy.testing import assert_array_equal
 
-import generator
 import nerdle
 import score as s
 import score_guess as sg
@@ -28,48 +27,6 @@ def solver_data():
 
 
 class TestNerdle:
-    def test_score_cpp(self):
-        # String must be byte-array-encoded for the C++ implementation.
-        assert sgo.score_guess(b"54/9=6", b"4*7=28") == \
-               hints_to_score((Hint.ABSENT, Hint.PRESENT, Hint.ABSENT, Hint.ABSENT,
-                               Hint.PRESENT, Hint.ABSENT))
-        assert sgo.score_guess(b"1+9=10", b"1+9=10") == \
-               hints_to_score([Hint.CORRECT] * 6)
-
-    def test_score_cython(self):
-        assert sg.score_guess("54/9=6", "4*7=28") == \
-               hints_to_score((Hint.ABSENT, Hint.PRESENT, Hint.ABSENT, Hint.ABSENT,
-                               Hint.PRESENT, Hint.ABSENT))
-
-    def test_score_8slots(self):
-        assert sgo.score_guess(b"10-43=66", b"12+34=56") == \
-               hints_to_score((Hint.CORRECT, Hint.ABSENT, Hint.ABSENT, Hint.PRESENT,
-                               Hint.PRESENT, Hint.CORRECT, Hint.ABSENT, Hint.CORRECT))
-
-        # Repeated digit. First occurrence is correct.
-        assert sgo.score_guess(b"10-84=46", b"12+34=56") == \
-               hints_to_score((Hint.CORRECT, Hint.ABSENT, Hint.ABSENT, Hint.ABSENT,
-                               Hint.CORRECT, Hint.CORRECT, Hint.ABSENT, Hint.CORRECT))
-
-        # Repeated digit. First occurrence is PRESENT.
-        assert sgo.score_guess(b"10-43=46", b"12+34=56") == \
-               hints_to_score((Hint.CORRECT, Hint.ABSENT, Hint.ABSENT, Hint.PRESENT,
-                               Hint.PRESENT, Hint.CORRECT, Hint.ABSENT, Hint.CORRECT))
-
-        # Repeated digit where second occurrence is the correct one. First one should be ABSENT then.
-        assert sgo.score_guess(b"40-84=77", b"12+34=56") == \
-               hints_to_score((Hint.ABSENT, Hint.ABSENT, Hint.ABSENT, Hint.ABSENT,
-                               Hint.CORRECT, Hint.CORRECT, Hint.ABSENT, Hint.ABSENT))
-
-    def test_generate_all_answers(self):
-        assert all(len(answer) == NUM_SLOTS for answer in list(generator.all_answers(NUM_SLOTS)))
-
-    def test_num_answers(self):
-        assert len(list(generator.all_answers(5))) == 127
-        assert len(list(generator.all_answers(6))) == 206
-        assert len(list(generator.all_answers(7))) == 6661
-#        assert len(list(generator.all_answers(8))) == 17723
-
     def test_solve(self, solver_data):
         run_solver(solver_data, "4*7=28", "54/9=6", 3)
         run_solver(solver_data, "4*3=12", "54/9=6", 4)
@@ -96,11 +53,6 @@ class TestNerdle:
         assert guess_history is not None
         assert len(guess_history) == 3
         assert guess_history[-1] == answer
-
-
-def process(guess, answer):
-    """Must be a top-level function (closure) to be pickeable and used within a joblib pool."""
-    return sgo.score_guess(guess, str(answer).encode())
 
 
 def run_solver(solver_data, answer, initial_guess, num_guesses, debug: bool = False):

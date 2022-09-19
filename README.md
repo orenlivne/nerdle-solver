@@ -10,3 +10,9 @@ Nerdle = 8 slots
 * Clone the git repo.
 * conda env create -f environment.yml
 * python setup.py build_ext --inplace && make build
+
+## Resources
+* https://betterprogramming.pub/solving-mastermind-641411708d01
+* https://github.com/starypatyk/nerdle-solver
+* https://www.youtube.com/watch?v=Okm_t5T1PiA&ab_channel=Confreaks
+* https://www.youtube.com/watch?v=v68zYyaEmEA&ab_channel=3Blue1Brown

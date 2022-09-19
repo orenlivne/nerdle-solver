@@ -9,13 +9,23 @@ from score import OPERATIONS, EQUALS
 def all_answers(num_slots: int, debug: bool = False) -> List[str]:
     """Generates all possible Nerdle answers of size 'num_slots'."""
     # TODO: prune the combinations we loop over.
-    # TODO: use direct evaluation instead of eval().
+    # TODO: use direct evaluation instead of eval()?
+    # If num_slots is odd, we have the corner case of X=X expressions with no ops.
+    if num_slots % 2 == 1:
+        num_result_slots =  num_slots // 2
+        result_range = (0 if num_result_slots == 1 else 10 ** (num_result_slots - 1), 10 ** num_result_slots)
+        for x in range(result_range[0], result_range[1]):
+            yield str(x) + EQUALS + str(x)
+
     for num_param in range(3, num_slots - 1):
         num_result_slots = num_slots - num_param - 1
         result_range = (0 if num_result_slots == 1 else 10 ** (num_result_slots - 1), 10 ** num_result_slots)
         if debug:
             print("param_slots", num_param, "X" * num_param + " = " + "X" * num_result_slots,
                   "result_range", result_range)
+        # Enumerate all answers with "=" at the 'num_param' slot via all possible splitting of the LHS expression
+        # by operation locations. Within each part we loop over integers, which is probably faster than looping over
+        # and concatenating numerical characters ('012345678').
         for num_ops in range(1, (num_param - 1) // 2 + 1):
             op_slots = [
                 combination
