@@ -32,6 +32,7 @@ import collections
 import ctypes
 import h5py
 import itertools
+import multiprocessing
 import numpy as np
 import os
 import sys
@@ -46,8 +47,8 @@ class NerdleData:
     """Encapsulates data structures required for the solver. Matrix implementation -- in-memory numpy array, loaded from
     and saved to a h5py file."""
     def __init__(self, num_slots: int, file_name: str, overwrite: bool = False,
-                 max_answers: Optional[int] = None, n_jobs: int = 2):
-        """n_jobs = 0 --> serial run."""
+                 max_answers: Optional[int] = None, num_processes: Optional[int] = None):
+        """num_processes = 0 --> serial run."""
         self.num_slots = num_slots
         self._file_name = file_name
         self._answers = None
@@ -56,7 +57,9 @@ class NerdleData:
                 self.answers = sorted(generator.all_answers(self.num_slots))
                 if max_answers is not None:
                     self.answers = self.answers[:max_answers]
-                self.score_db = np.array(NerdleData._create_score_database(self.answers, n_jobs=n_jobs), dtype=int)
+                create_score_database = NerdleData._create_score_database_parallel \
+                    if num_processes == 0 or len(self.answers) <= min_parallel_n else NerdleData._create_score_database_serial
+                self.score_db = np.array(create_score_database(self.answers, num_processes=num_processes), dtype=int)
                 # Storing answers as bytearray since h5py does not support numpy strings.
                 # TODO: just work with bytearrays instead of strings everywhere.
                 f.create_dataset("answers", data=np.array([x.encode() for x in self.answers]))
@@ -68,8 +71,16 @@ class NerdleData:
                 self.score_db = f["score_db"][:, :]
 
     @staticmethod
-    #@jit(parallel=True)
-    def _create_score_database(answers, n_jobs: int = 2):
+    def _create_score_database_parallel(answers, num_processes: Optional[int] = None):
+        n = len(answers)
+        if num_processes is None:
+            num_processes = multiprocessing.cpu_count()
+        with multiprocessing.Pool(processes=num_processes) as pool:
+            score = pool.map(_score_guess, itertools.product(answers, repeat=2))
+            return np.array(score).reshape(n, n)
+
+    @staticmethod
+    def _create_score_database_serial(answers):
         # default dict avoids storing keys as tuple, saves lookup time
         n = len(answers)
         print_frequency = n // 20
@@ -78,13 +89,7 @@ class NerdleData:
             if print_frequency > 0 and i % print_frequency == 0:
                 print("{} / {} ({:.1f}%) completed".format(i, n, (100 * i) / n))
             guess_encoded = str(guess).encode()
-            # if n_jobs == 0:
-            #     # Serial version
             score_db[i] = [sgo.score_guess(guess_encoded, str(answer).encode()) for answer in answers]
-            # else:
-            #     # Parallel version with joblib:
-            #     score_db[i] = Parallel(n_jobs=n_jobs)(delayed(_score_guess)(str(guess_encoded), str(answer))
-            #                                           for answer in answers)
         return score_db
 
     @property
@@ -206,15 +211,15 @@ def parse_args():
 
 
 def create_solver_data(num_slots: int, file_name: str, overwrite: bool = False,
-                       max_answers: Optional[int] = None, n_jobs: int = 2) -> NerdleData:
+                       max_answers: Optional[int] = None, num_processes: int = 2) -> NerdleData:
     """Creates/load solver data from existing h5py database file."""
-    return NerdleData(num_slots, file_name, overwrite=overwrite, max_answers=max_answers, n_jobs=n_jobs)
+    return NerdleData(num_slots, file_name, overwrite=overwrite, max_answers=max_answers, num_processes=num_processes)
 
 
 def _score_guess(args):
     guess, answer = args
-    """Must be a top-level function (closure) to be pickeable and used within a multiprocessing pool."""
-    return sgo.score_guess(guess, str(answer).encode())
+    """Must be a top-level function (closure) to be pickeable and used within a joblib pool."""
+    return sgo.score_guess(str(guess).encode(), str(answer).encode())
 
 
 class Node:
@@ -225,4 +230,4 @@ class Node:
 
 if __name__ == "__main__":
    args = parse_args()
-   solver_data_cy = create_solver_data(args.num_slots, args.score_db, overwrite=True, n_jobs=args.num_jobs)
+   solver_data_cy = create_solver_data(args.num_slots, args.score_db, overwrite=True, num_processes=args.num_jobs)
