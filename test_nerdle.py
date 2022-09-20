@@ -3,7 +3,6 @@ import ctypes
 import itertools
 import io
 import os
-import pickle
 import pytest
 #from joblib import Parallel, delayed, wrap_non_picklable_objects
 from numpy.testing import assert_array_equal

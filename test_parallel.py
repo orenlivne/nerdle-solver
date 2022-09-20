@@ -1,6 +1,5 @@
 """Nerdle game solver unit tests."""
 import ctypes
-import functools
 import itertools
 import os
 import multiprocessing

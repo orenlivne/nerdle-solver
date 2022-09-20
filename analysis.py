@@ -2,6 +2,7 @@
 import collections
 import nerdle
 import numpy as np
+import scipy.stats
 
 
 class Node:
@@ -55,17 +56,16 @@ class GameTreeBuilder:
         else:
             answers = np.arange(len(node.answers))
             score = node.score
-            # Find bestr initial gues.
-            bucket_size, _, k_opt = min(
-                (max(collections.Counter(score[k]).values()), k not in answers, k) for k in self._solver_data.all_keys)
-
+            # Find best next guess.
+            bucket_size, _, k_opt = min((b, k not in answers, k) for k, b in
+                                        enumerate(scipy.stats.mode(score, axis=1, keepdims=False)[1]))
             # TODO: use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path
             # to reduce memory of storing entire tree.
             info_k = _score_dict(answers, score, k_opt)
             try:
                 answer_str = self._solver_data.answers[k_opt]
             except:
-                aaa=0
+                pass
             node.key = (k_opt, answer_str, bucket_size)
             node.children = [Node(None, np.array(bucket), score[:, bucket], [
             ], hint=hint, parent=node) for hint, bucket in info_k.items()]

@@ -6,6 +6,7 @@ dependencies:
   - h5py
   - ipython
   - jupyterlab
+  - scipy
   - matplotlib
   - pytest
   - python >=3.9

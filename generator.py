@@ -1,5 +1,4 @@
 """Generates the pace of answers of a Nerdle game."""
-import collections
 import itertools
 from typing import Tuple, List
 
