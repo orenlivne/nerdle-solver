@@ -55,14 +55,20 @@ class GameTreeBuilder:
         else:
             answers = np.arange(len(node.answers))
             score = node.score
-            # TODO: instead of explicitly creating the entire tree, which will consume O(n^3) memory,
-            # use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path.
-            info = [_score_dict(answers, score, k) for k in self._all_keys]
-            bucket_size, _, k_opt = min((max(map(len, info_k.values())), k not in answers, k)
-                        for k, info_k in zip(self._all_keys, info))
-            node.key = (k_opt, self._solver_data.answers[node.answer_key(k_opt)], bucket_size)
+            # Find bestr initial gues.
+            bucket_size, _, k_opt = min(
+                (max(collections.Counter(score[k]).values()), k not in answers, k) for k in self._solver_data.all_keys)
+
+            # TODO: use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path
+            # to reduce memory of storing entire tree.
+            info_k = _score_dict(answers, score, k_opt)
+            try:
+                answer_str = self._solver_data.answers[k_opt]
+            except:
+                aaa=0
+            node.key = (k_opt, answer_str, bucket_size)
             node.children = [Node(None, np.array(bucket), score[:, bucket], [
-            ], hint=hint, parent=node) for hint, bucket in info[k_opt].items()]
+            ], hint=hint, parent=node) for hint, bucket in info_k.items()]
 
 
 class TreeDepthCalculator:

@@ -21,7 +21,6 @@ def create_solver_data(num_slots: int, min_parallel_n: int = 20000):
     return nerdle.create_solver_data(
         num_slots,
         file_name,
-        overwrite=True,
         min_parallel_n=min_parallel_n)
 
 
