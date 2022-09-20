@@ -28,14 +28,15 @@ References:
     4. https://www.cs.uni.edu/~wallingf/teaching/cs3530/resources/knuth-mastermind.pdf
 """
 import argparse
+import collections
 import ctypes
 import h5py
 import itertools
 import multiprocessing
 import numpy as np
 import os
-import scipy.stats
-from typing import List, Optional, Tuple
+import sys
+from typing import Tuple, List, Optional, Set, Dict
 
 import generator
 from score import score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator, SCORE_GUESS_OPT_SO
@@ -238,8 +239,15 @@ class NerdleSolver:
         # Sort by score, then by guess possibility (prefer possible guesses over impossible ones.), get min (best case).
         # TODO: a possible improvement is to weight the counts by bigram conditional probabilities (how likely a
         #  character is to appear after another in the current answer set).
-        return min((b, k not in self._answer_keys, k)
-                   for k, b in enumerate(scipy.stats.mode(self._score_db, axis=1, keepdims=False)[1]))[-1]
+        # scipy-mode implementation. Is it really faster?
+        #         return min((b, k not in self._answer_keys, k)
+        #                    for k, b in enumerate(scipy.stats.mode(self._score_db, axis=1, keepdims=False)[1]))[-1]
+        return min(
+            (max(collections.Counter(self._score_db[guess_key]).values()),
+             guess_key not in self._answer_keys,
+             guess_key)
+            for guess_key in self._all_keys
+        )[-1]
 
 
 def parse_args():

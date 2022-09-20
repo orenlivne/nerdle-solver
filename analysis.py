@@ -31,9 +31,9 @@ class Node:
 
 
 class GameTreeBuilder:
-    def __init__(self, solver_data):
+    def __init__(self, solver_data, max_answers=1000000):
         self._solver_data = solver_data
-        self._score_db = solver_data.score_db.copy()
+        self._score_db = solver_data.score_db.copy()[:, :max_answers]
         self._solver = nerdle.NerdleSolver(solver_data)
         self._all_keys = solver_data.all_keys
 
@@ -57,18 +57,29 @@ class GameTreeBuilder:
             answers = np.arange(len(node.answers))
             score = node.score
             # Find best next guess.
-            bucket_size, _, k_opt = min((b, k not in answers, k) for k, b in
-                                        enumerate(scipy.stats.mode(score, axis=1, keepdims=False)[1]))
+            bucket_size, k_opt = best_guess(answers, score)
             # TODO: use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path
             # to reduce memory of storing entire tree.
             info_k = _score_dict(answers, score, k_opt)
             try:
                 answer_str = self._solver_data.answers[k_opt]
             except:
-                pass
+                aaa=0
             node.key = (k_opt, answer_str, bucket_size)
             node.children = [Node(None, np.array(bucket), score[:, bucket], [
             ], hint=hint, parent=node) for hint, bucket in info_k.items()]
+
+
+def best_guess(answers, score):
+    if score.shape[1] <= 300:
+        bucket_size, _, k_opt = min(
+            (collections.Counter(score_k).most_common(1)[0][1], k not in answers, k)
+            for k, score_k in enumerate(score))
+    else:
+        bucket_size, _, k_opt = min((b, k not in answers, k)
+                                    for k, b in
+                                    enumerate(scipy.stats.mode(score, axis=1, keepdims=False)[1]))
+    return bucket_size, k_opt
 
 
 class TreeDepthCalculator:
