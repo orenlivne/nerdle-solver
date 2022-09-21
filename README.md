@@ -16,3 +16,5 @@ Nerdle = 8 slots
 * https://github.com/starypatyk/nerdle-solver
 * https://www.youtube.com/watch?v=Okm_t5T1PiA&ab_channel=Confreaks
 * https://www.youtube.com/watch?v=v68zYyaEmEA&ab_channel=3Blue1Brown
+* New MIT Werdle Dynamic Programming Solver: https://auction-upload-files.s3.amazonaws.com/Wordle_Paper_Final.pdf .
+  Possibly applicable to Nerdle.

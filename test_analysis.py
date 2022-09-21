@@ -37,3 +37,14 @@ class TestAnalysis:
 
         assert num_leaves == len(solver_data.answers)
         assert freq == {3: 173, 2: 31, 4: 2}
+
+    def test_min_biased_multilevel_sampling(self, solver_data):
+        np.random.seed(0)
+        a = solver_data.score_db
+
+        quantity = lambda a: analysis.max_bucket_sizes(a) / a.shape[1]
+        exact = quantity(a)
+        approx = analysis.min_biased_multilevel_sampling(a, quantity)
+
+        assert min(approx) == min(exact)
+        assert np.argmin(approx) == np.argmin(exact)

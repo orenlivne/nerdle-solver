@@ -57,7 +57,9 @@ class GameTreeBuilder:
             answers = np.arange(len(node.answers))
             score = node.score
             # Find best next guess.
-            bucket_size, k_opt = best_guess(answers, score)
+            bucket_sizes = max_bucket_sizes(score)
+            bucket_size, _, k_opt = min((b, k not in answers, k) for k, b in enumerate(bucket_sizes))
+
             # TODO: use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path
             # to reduce memory of storing entire tree.
             info_k = _score_dict(answers, score, k_opt)
@@ -70,16 +72,41 @@ class GameTreeBuilder:
             ], hint=hint, parent=node) for hint, bucket in info_k.items()]
 
 
-def best_guess(answers, score):
+def max_bucket_sizes(score) -> np.ndarray:
     if score.shape[1] <= 300:
-        bucket_size, _, k_opt = min(
-            (collections.Counter(score_k).most_common(1)[0][1], k not in answers, k)
-            for k, score_k in enumerate(score))
+        return np.array([collections.Counter(score_k).most_common(1)[0][1] for score_k in score])
     else:
-        bucket_size, _, k_opt = min((b, k not in answers, k)
-                                    for k, b in
-                                    enumerate(scipy.stats.mode(score, axis=1, keepdims=False)[1]))
-    return bucket_size, k_opt
+        return scipy.stats.mode(score, axis=1, keepdims=False)[1]
+
+
+def min_biased_multilevel_sampling(score, quantity, min_sample_size: int = 100):
+    """Quantity is a functor that depends on the set of values of a row (i.e., its values is independent of column
+    ordering."""
+    # Ensure linear complexity.
+    m, n = score.shape
+    # 'rows' is the active set of rows. As we increase the sample, result[rows] becomes more accurate; we only
+    # need a high accuracy in small result values, so we keep halving 'rows' in the loop below while increasing
+    # the sample size.
+    rows, cols, result = np.arange(m, dtype=int), np.arange(n, dtype=int), np.zeros((m, ))
+    sample_size = min_sample_size
+    while True:
+        # Select a random sample of the rows of size 'sample_size'.
+        col_sample = np.random.choice(cols, size=sample_size, replace=False)
+        # Calculate max bucket sizes for all elements in 'rows' using the current sample (overriding some old values).
+        quantities = quantity(score[rows][:, col_sample])
+        result[rows] = quantities
+        if sample_size == m:
+            break
+        # Restrict rows to the smaller half of quantity value.
+        old_rows = rows
+        #  If the quantity distribution is sufficiently spread so that the median is not repeated many times, the
+        # loop halves len(rows), so there ~ log2(m) repeats. But what happens when the median is repeated?
+        q_median = np.median(quantities)
+        i = np.where(quantities < q_median)[0]
+        i = np.concatenate((i, np.where(quantities == q_median)[0][:len(rows) // 2 - len(i)]))
+        rows = rows[i]
+        sample_size = min(int(1.9 * sample_size), m)
+    return result
 
 
 class TreeDepthCalculator:
