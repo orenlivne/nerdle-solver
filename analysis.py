@@ -37,7 +37,13 @@ class GameTreeBuilder:
         self._solver = nerdle.NerdleSolver(solver_data)
         self._all_keys = solver_data.all_keys
 
-    def build(self, debug: bool = False) -> Node:
+    def build(self, debug: bool = False, strategy="minimax") -> Node:
+        if strategy == "minimax":
+            bucket_size_functor = max_bucket_sizes
+        elif strategy == "multilevel":
+            bucket_size_functor = max_bucket_sizes
+        else:
+            raise ValueError("Unknown max bucket calculation strategy {}".format(strategy))
         root = Node(
             None,
             np.arange(
@@ -45,10 +51,10 @@ class GameTreeBuilder:
                 dtype=int),
             self._score_db,
             [])
-        pre_traversal(root, self._process_node, debug=debug)
+        pre_traversal(root, lambda node: self._process_node(node, bucket_size_functor), debug=debug)
         return root
 
-    def _process_node(self, node):
+    def _process_node(self, node, bucket_size_functor):
         if len(node.answers) == 1:
             if not self._solver.is_correct(
                     node.score[node.answer_key(node.answers[0]), 0]):
@@ -57,7 +63,7 @@ class GameTreeBuilder:
             answers = np.arange(len(node.answers))
             score = node.score
             # Find best next guess.
-            bucket_sizes = max_bucket_sizes(score)
+            bucket_sizes = bucket_size_functor(score)
             bucket_size, _, k_opt = min((b, k not in answers, k) for k, b in enumerate(bucket_sizes))
 
             # TODO: use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path
@@ -86,7 +92,7 @@ def min_biased_multilevel_sampling(score, quantity, min_sample_size: int = 100):
     m, n = score.shape
     # 'rows' is the active set of rows. As we increase the sample, result[rows] becomes more accurate; we only
     # need a high accuracy in small result values, so we keep halving 'rows' in the loop below while increasing
-    # the sample size.
+    # the sample size. [log2(m)] + 1 repeats at most.
     rows, cols, result = np.arange(m, dtype=int), np.arange(n, dtype=int), np.zeros((m, ))
     sample_size = min_sample_size
     while True:
@@ -98,9 +104,9 @@ def min_biased_multilevel_sampling(score, quantity, min_sample_size: int = 100):
         if sample_size == m:
             break
         # Restrict rows to the smaller half of quantity value.
-        old_rows = rows
         #  If the quantity distribution is sufficiently spread so that the median is not repeated many times, the
         # loop halves len(rows), so there ~ log2(m) repeats. But what happens when the median is repeated?
+        # Truncate the list 'i' to half the size of rows, filling it with values < median and some values = median.
         q_median = np.median(quantities)
         i = np.where(quantities < q_median)[0]
         i = np.concatenate((i, np.where(quantities == q_median)[0][:len(rows) // 2 - len(i)]))

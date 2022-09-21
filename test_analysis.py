@@ -38,7 +38,20 @@ class TestAnalysis:
         assert num_leaves == len(solver_data.answers)
         assert freq == {3: 173, 2: 31, 4: 2}
 
-    def test_min_biased_multilevel_sampling(self, solver_data):
+    def test_game_tree_builder_multilevel(self, solver_data):
+        tree = analysis.GameTreeBuilder(solver_data).build(strategy="multilevel")
+
+        # Distribution of #guesses for all answers.
+        tdc = analysis.TreeDepthCalculator(tree)
+        num_guesses = np.array(
+            [depth for node, depth in tdc.depth.items() if not node.children]) + 1
+        freq = collections.Counter(num_guesses)
+        num_leaves = sum(1 for node in tdc.depth if not node.children)
+
+        assert num_leaves == len(solver_data.answers)
+        assert freq == {3: 173, 2: 31, 4: 2}
+
+    def test_min_biased_multilevel_sampling_score_db_6_slots(self, solver_data):
         np.random.seed(0)
         a = solver_data.score_db
 
@@ -47,4 +60,13 @@ class TestAnalysis:
         approx = analysis.min_biased_multilevel_sampling(a, quantity)
 
         assert min(approx) == min(exact)
-        assert np.argmin(approx) == np.argmin(exact)
+
+    def test_min_biased_multilevel_sampling_random_matrix(self, solver_data):
+        np.random.seed(0)
+        a = np.random.randint(0, 50, (1000, 1000))
+
+        quantity = lambda a: analysis.max_bucket_sizes(a) / a.shape[1]
+        exact = quantity(a)
+        approx = analysis.min_biased_multilevel_sampling(a, quantity)
+
+        assert min(approx) == min(exact)
