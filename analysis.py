@@ -88,7 +88,9 @@ class GameTreeBuilder:
             answers = np.arange(len(node.answers), dtype=int)
             # Find best next guess.
             bucket_sizes = bucket_size_functor(score)
-            bucket_size, _, k_opt = min((b, k not in answers, k) for k, b in enumerate(bucket_sizes))
+            feasible = np.logical_not(np.in1d(np.arange(len(bucket_sizes)), answers))
+            bucket_size, _, k_opt = min((b, k not in answers, k)
+                                        for k, (k_feasible, b)  in enumerate(zip(feasible, bucket_sizes)))
 
             # TODO: use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path
             # to reduce memory of storing entire tree.
