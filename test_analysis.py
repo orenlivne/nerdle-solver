@@ -57,7 +57,7 @@ class TestAnalysis:
 
         quantity = lambda a: analysis.max_bucket_sizes(a) / a.shape[1]
         exact = quantity(a)
-        approx = analysis.min_biased_multilevel_sampling(a, quantity)
+        approx = analysis.min_biased_multilevel_sampling(a, quantity, min_sample_size=100)
 
         assert min(approx) == min(exact)
 
@@ -67,6 +67,19 @@ class TestAnalysis:
 
         quantity = lambda a: analysis.max_bucket_sizes(a) / a.shape[1]
         exact = quantity(a)
-        approx = analysis.min_biased_multilevel_sampling(a, quantity)
+        exact_min = min(exact)
 
-        assert min(approx) == min(exact)
+        approx = analysis.min_biased_multilevel_sampling(a, quantity, min_sample_size=100, sample_factor=1.9)
+        assert min(approx) == exact_min
+
+        approx = analysis.min_biased_multilevel_sampling(a, quantity, min_sample_size=100, sample_factor=1.5)
+        assert min(approx) <= 1.05 * exact_min
+
+    def test_min_biased_multilevel_sampling_small_matrix(self, solver_data):
+        np.random.seed(0)
+        a = np.random.randint(0, 50, (217, 9))
+        quantity = lambda a: analysis.max_bucket_sizes(a) / a.shape[1]
+
+        approx = analysis.min_biased_multilevel_sampling(a, quantity, min_sample_size=100, sample_factor=1.9)
+
+        assert len(approx) == 217
