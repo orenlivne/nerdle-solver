@@ -4,8 +4,12 @@ channels:
   - defaults
 dependencies:
   - h5py
+  - ipython
+  - jupyterlab
   - scipy
+  - matplotlib
+  - pandas
+  - pytest
   - python >=3.9
   - selenium
 prefix: /Users/olivne/opt/miniconda3/envs/nerdle
-

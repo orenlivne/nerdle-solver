@@ -3,6 +3,7 @@ import collections
 import nerdle
 import numpy as np
 import scipy.stats
+from typing import Iterable, Dict
 
 
 class Node:
@@ -16,8 +17,10 @@ class Node:
         self.parent = parent
 
     def __repr__(self):
-        return "Node[key={}, answers={}, score={}, children={}]".format(
-            self.key, len(self.answers), self.score.shape, len(self.children))
+        return "Node[key={}, guesses={} answers={}{}, score={}, children={}]".format(
+            self.key, len(self.guesses), len(self.answers),
+            " " + str(self.answers) if len(self.answers) <= 10 else "",
+            self.score.shape, len(self.children))
 
     def __str__(self):
         return repr(self)
@@ -45,6 +48,7 @@ class GameTreeBuilder:
         self._score_db = solver_data.score_db.copy()[:, :max_answers]
         self._solver = nerdle.NerdleSolver(solver_data)
         self._all_keys = solver_data.all_keys
+        self._n = len(solver_data.all_keys)
 
     def build(self, debug: bool = False, strategy="minimax",
               min_sample_size: int = 2000, sample_factor: float = 1.7,
@@ -64,38 +68,43 @@ class GameTreeBuilder:
         else:
             raise ValueError("Unknown max bucket calculation strategy {}".format(strategy))
         quantity = lambda a: bucket_size_functor(a) / a.shape[1]
-        root = Node(
-            None,
-            np.arange(self._score_db.shape[0], dtype=int),
-            np.arange(self._score_db.shape[0], dtype=int),
-            self._score_db,
-            [])
+        root = Node(None, self._all_keys, self._all_keys, self._score_db, [])
         pre_traversal(root, lambda node: self._process_node(
             node, quantity, guess_coarsening_factor=guess_coarsening_factor), debug=debug)
         return root
 
     def _process_node(self, node, bucket_size_functor, guess_coarsening_factor: float = 4):
         if len(node.answers) == 1:
-            if not self._solver.is_correct(node.score[node.answers[0], 0]):
+            guess_is_answer = np.where(node.guesses == node.answers[0])[0]
+            if len(guess_is_answer) != 1 or not self._solver.is_correct(node.score[guess_is_answer[0], 0]):
                 raise ValueError("Failed to solve game")
         else:
+            # Coarsen in rows (guesses).
             score = node.score
-            if guess_coarsening_factor > 1:
+            if guess_coarsening_factor > 1 and len(node.answers) <= 0.1 * self._n:
                 # Coarsen in rows.
-                guesses = None
+                guesses = np.sort(
+                    np.concatenate(
+                    (node.answers,
+                     np.random.choice(np.setdiff1d(node.guesses, node.answers),
+                                      size=int((self._n - len(node.answers)) / guess_coarsening_factor),
+                                      replace=False))))
+                score = score[np.where(np.in1d(node.guesses, guesses))[0]]
             else:
-                guesses = np.arange(score.shape[0], dtype=int)
-            answers = np.arange(len(node.answers), dtype=int)
-            # Find best next guess.
+                guesses = node.guesses
+
+            # Find best next guess = argmin(max bucket size).
+            answer_index = np.arange(len(node.answers), dtype=int)
             bucket_sizes = bucket_size_functor(score)
-            feasible = np.logical_not(np.in1d(np.arange(len(bucket_sizes)), answers))
-            bucket_size, _, k_opt = min((b, k not in answers, k)
-                                        for k, (k_feasible, b)  in enumerate(zip(feasible, bucket_sizes)))
+            feasible = np.logical_not(np.in1d(np.arange(len(bucket_sizes)), answer_index))
+            bucket_size, _, guess_index_opt = min((b, k_feasible, k)
+                                                  for k, (k_feasible, b) in enumerate(zip(feasible, bucket_sizes)))
+            guess_opt = guesses[guess_index_opt]
 
             # TODO: use depth-first traversal and only keep leaf depth (=#guesses) and perhaps its solution path
             # to reduce memory of storing entire tree.
-            info = _score_dict(answers, score, k_opt)
-            node.key = (k_opt, self._solver_data.answers[k_opt], bucket_size)
+            info = _bucket_iterable(answer_index, score[guess_index_opt])
+            node.key = (guess_opt, self._solver_data.answers[guess_opt], bucket_size)
             node.children = [
                 Node(None, guesses, node.answers[bucket], score[:, bucket], [], hint=hint, parent=node)
                 for hint, bucket in info.items()
@@ -171,14 +180,14 @@ def pre_traversal(
         depth: int = 0,
         debug: bool = False):
     process_node(node)
-    if debug and depth <= 1:
+    if debug: # and depth <= 1:
         print("\t" * depth, node)
     for child in node.children:
         pre_traversal(child, process_node, depth=depth + 1, debug=debug)
 
 
-def _score_dict(answers, score, k):
+def _bucket_iterable(answers: Iterable, score: Iterable) -> Dict:
     s = collections.defaultdict(list)
-    for a, v in zip(answers, score[k]):
+    for a, v in zip(answers, score):
         s[v].append(a)
     return s

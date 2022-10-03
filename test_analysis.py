@@ -25,6 +25,21 @@ def create_solver_data(num_slots: int, min_parallel_n: int = 20000):
 
 
 class TestAnalysis:
+    def test_game_tree_builder_5slots(self):
+        np.random.seed(0)
+        solver_data = create_solver_data(5)
+        tree = analysis.GameTreeBuilder(solver_data).build()
+
+        # Distribution of #guesses for all answers.
+        tdc = analysis.TreeDepthCalculator(tree)
+        num_guesses = np.array(
+            [depth for node, depth in tdc.depth.items() if not node.children]) + 1
+        freq = collections.Counter(num_guesses)
+        num_leaves = sum(1 for node in tdc.depth if not node.children)
+
+        assert num_leaves == len(solver_data.answers)
+        assert freq == {3: 85, 4: 60, 5: 49, 2: 19, 6: 4}
+
     def test_game_tree_builder(self, solver_data):
         tree = analysis.GameTreeBuilder(solver_data).build()
 
