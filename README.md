@@ -1,15 +1,20 @@
 # Nerdle Solver
-Nerdle Solver (for 5..8 slots).
-Mini Nerdle = 6 slots
-Nerdle = 8 slots
+A fast algorithm for solving [Nerdle](https://nerdlegame.com) with various slot sizes.
+Mini Nerdle = 6 slots. Nerdle = 8 slots.
 
 ## Prerequisites
-* C++ compiler (`gcc`; if different, modify the `CC` variable in Makefile` accordingly.)
+* Install C++ compiler (`gcc`; if different, modify the `CC` variable in Makefile` accordingly.)
+* Install `conda` (`miniconda` is sufficient).
 
 ## Installation
 * Clone the git repo.
-* conda env create -f environment.yml
-* python setup.py build_ext --inplace && make build
+* Install the environment: `conda env create --file environment.yml -n nerdle`
+* Activate the environment: `conda activate nerdle`
+* Run `cd src/nerle && make`.
+* Add `src` to your `PYTHONPATH` environment variable.
+
+## Running Unit Tests
+* Run `pytest test` in the root project directory.
 
 ## Resources
 * https://betterprogramming.pub/solving-mastermind-641411708d01
@@ -18,3 +23,6 @@ Nerdle = 8 slots
 * https://www.youtube.com/watch?v=v68zYyaEmEA&ab_channel=3Blue1Brown
 * New MIT Werdle Dynamic Programming Solver: https://auction-upload-files.s3.amazonaws.com/Wordle_Paper_Final.pdf .
   Possibly applicable to Nerdle.
+
+## Contact
+Oren Livne <oren.livne@gmail.com>

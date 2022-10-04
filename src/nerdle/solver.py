@@ -35,12 +35,11 @@ import itertools
 import multiprocessing
 import numpy as np
 import os
-import sys
-from typing import Tuple, List, Optional, Set, Dict
+from typing import Tuple, List, Optional
 
-import generator
-from score import score_to_hint_string, Hint, hints_to_score, hint_string_to_score, FileHintGenerator, SCORE_GUESS_OPT_SO
-sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)    # C++ implementation.
+from . import generator
+from .score import score_to_hint_string, Hint, hints_to_score, SCORE_GUESS_SO
+sgo = ctypes.CDLL(SCORE_GUESS_SO)    # C++ implementation.
 
 
 class NerdleData:

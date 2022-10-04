@@ -3,23 +3,19 @@ import ctypes
 import itertools
 import os
 import multiprocessing
-
 import numpy as np
 import pytest
 #from joblib import Parallel, delayed, wrap_non_picklable_objects
 from numpy.testing import assert_array_equal
 
 import nerdle
-import score as s
-import score_guess as sg
-from nerdle import NerdleData
-sgo = ctypes.CDLL(s.SCORE_GUESS_OPT_SO)
+sgo = ctypes.CDLL(nerdle.score.SCORE_GUESS_SO)
 
 # By default, all tests are for mini-nerdle unless #slots explicitly
 # stated in a test function.
 GUESS = "54/9=6"
 NUM_SLOTS = 6
-SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(NUM_SLOTS)
+SCORE_DB_MATRIX_FILE = os.path.join(nerdle.DB_DIR, "nerdle{}.db".format(NUM_SLOTS))
 
 
 @pytest.fixture()

@@ -1,5 +1,4 @@
-"""The first time this test is run, it builds the 8-slot Nerdle solver database, which takes several minutes. Subsequent
-test run times should be in the few seconds."""
+"""Nerdle web client tests."""
 import os.path
 
 import numpy as np
@@ -8,20 +7,20 @@ from selenium import webdriver
 from numpy.testing import assert_array_equal
 
 import nerdle
-import web_client
-from score import score_to_hint_string
-from web_client import NUM_SLOTS, MAX_GUESSES
+import nerdle.client
+from nerdle.score import score_to_hint_string
+from nerdle.client import NUM_SLOTS, MAX_GUESSES
 
-SCORE_DB_MATRIX_FILE = "db/nerdle{}.db".format(web_client.NUM_SLOTS)
+SCORE_DB_MATRIX_FILE = os.path.join(nerdle.DB_DIR, "nerdle{}.db".format(NUM_SLOTS))
 
 
 @pytest.fixture()
 def solver_data():
     os.makedirs(os.path.dirname(SCORE_DB_MATRIX_FILE), exist_ok=True)
-    return nerdle.create_solver_data(NUM_SLOTS, SCORE_DB_MATRIX_FILE)
+    return nerdle.solver.create_solver_data(NUM_SLOTS, SCORE_DB_MATRIX_FILE)
 
 
-class TestWebClient:
+class TestClient:
     def setup_method(self, method):
         options = webdriver.ChromeOptions()
         for option in (
@@ -33,7 +32,7 @@ class TestWebClient:
                 "disable-dev-shm-usage"):
             options.add_argument(option)
         driver = webdriver.Chrome(options=options)
-        self.client = web_client.NerdleClient(driver)
+        self.client = nerdle.client.NerdleClient(driver)
 
     def teardown_method(self, method):
         self.client.__exit__(None, None, None)
@@ -41,7 +40,7 @@ class TestWebClient:
     def test_play_game(self, solver_data):
         # Answer taken from the Nerdle archive:
         # https://www.dexerto.com/gaming/daily-nerdle-answers-todays-nerdle-equation-1836105/
-        solver = nerdle.NerdleSolver(solver_data)
+        solver = nerdle.solver.NerdleSolver(solver_data)
         success, guess_history, hint_history = self.client.play_game(
             solver, "https://nerdlegame.com/20220913", live=False)
         assert success
@@ -55,7 +54,7 @@ class TestWebClient:
             '++++++++']
 
     def test_live_game(self, solver_data):
-        solver = nerdle.NerdleSolver(solver_data)
+        solver = nerdle.solver.NerdleSolver(solver_data)
         success, guess_history, hint_history = self.client.play_game(
             solver, "https://nerdlegame.com", live=True)
         assert success

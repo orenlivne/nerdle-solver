@@ -1,8 +1,10 @@
 """Conversion from score to hint array and back."""
-import functools
 import itertools
+import functools
+import os
 
-SCORE_GUESS_OPT_SO = "./score_guess_opt.so"
+
+SCORE_GUESS_SO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "score_guess.so")
 
 
 class Hint:
@@ -14,9 +16,7 @@ class Hint:
 
 
 HINT_STRING = {Hint.ABSENT: "-", Hint.CORRECT: "+", Hint.PRESENT: "?"}
-
 STRING_TO_HINT = {v: k for k, v in HINT_STRING.items()}
-
 OPERATIONS = "+-*/"
 EQUALS = "="
 
@@ -57,6 +57,7 @@ def grouper(iterable, n, *, incomplete='fill', fillvalue=None):
 
 
 class FileHintGenerator:
+    """Generates hints by reading them line-by-line from a file ."""
     def __init__(self, file):
         self._file = file
         self._count = 0

@@ -2,10 +2,9 @@
 import ctypes
 import pytest
 
-import score as s
-import score_guess as sg
-from score import Hint, hints_to_score, hint_string_to_score, SCORE_GUESS_OPT_SO
-sgo = ctypes.CDLL(SCORE_GUESS_OPT_SO)
+import nerdle.score as s
+from nerdle.score import Hint, hints_to_score, hint_string_to_score, SCORE_GUESS_SO
+sgo = ctypes.CDLL(SCORE_GUESS_SO)
 
 
 class TestScore:
@@ -20,15 +19,6 @@ class TestScore:
                                                              Hint.ABSENT))
         assert sgo.score_guess(b"1+9=10", b"1+9=10") == \
             hints_to_score([Hint.CORRECT] * 6)
-
-    def test_score_cython(self):
-        assert sg.score_guess("54/9=6",
-                              "4*7=28") == hints_to_score((Hint.ABSENT,
-                                                           Hint.PRESENT,
-                                                           Hint.ABSENT,
-                                                           Hint.ABSENT,
-                                                           Hint.PRESENT,
-                                                           Hint.ABSENT))
 
     def test_score_8slots(self):
         assert sgo.score_guess(b"10-43=66",

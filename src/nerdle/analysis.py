@@ -1,9 +1,10 @@
 """Nerdle Game tree builder and analysis of distribution of #guesses over all answers."""
 import collections
-import nerdle
 import numpy as np
 import scipy.stats
 from typing import Iterable, Dict
+
+from . import solver
 
 
 class Node:
@@ -46,7 +47,7 @@ class GameTreeBuilder:
     def __init__(self, solver_data, max_answers: int = 10000000):
         self._solver_data = solver_data
         self._score_db = solver_data.score_db.copy()[:, :max_answers]
-        self._solver = nerdle.NerdleSolver(solver_data)
+        self._solver = solver.NerdleSolver(solver_data)
         self._all_keys = solver_data.all_keys
         self._n = len(solver_data.all_keys)
 

@@ -1,28 +1,28 @@
 """Nerdle game solver unit tests."""
-import pytest
 
-import generator
-from score import OPERATIONS
+import nerdle.generator
+from nerdle.score import OPERATIONS
 
 
 class TestGenerator:
     def test_all_answers(self):
         for num_slots in range(4, 8):
-            assert all(
-                len(answer) == num_slots for answer in list(
-                    generator.all_answers(num_slots)))
+            assert all(len(answer) == num_slots for answer in list(nerdle.generator.all_answers(num_slots)))
 
     def test_all_answer_equals_generate_answers(self):
         for num_slots in range(4, 8):
             assert set(
-                generator.all_answers(num_slots)) == set(
-                generate_answers(num_slots))
+                nerdle.generator.all_answers(num_slots)) == set(generate_answers(num_slots))
 
     def test_num_answers(self):
-        assert len(list(generator.all_answers(5))) == 217
-        assert len(list(generator.all_answers(6))) == 206
-        assert len(list(generator.all_answers(7))) == 7561
-        assert len(list(generator.all_answers(8))) == 17723
+        assert len(list(nerdle.generator.all_answers(5))) == 217
+        assert len(list(nerdle.generator.all_answers(6))) == 206
+        assert len(list(nerdle.generator.all_answers(7))) == 7561
+        assert len(list(nerdle.generator.all_answers(8))) == 17723
+
+    def test_num_answers_debug(self):
+        print("\n")
+        a = list(nerdle.generator.all_answers(7, debug=True))
 
 
 # A fantastic dynamic programming implementation from https://github.com/starypatyk/nerdle-solver/blob/main/gen_perms.py
@@ -45,7 +45,7 @@ def generate_answers(num_slots: int):
                 num_param - 1,
                 "",
                 0 if num_result_slots == 1 else 10 ** (
-                    num_result_slots - 1),
+                        num_result_slots - 1),
                 10 ** num_result_slots):
             yield answer
 
@@ -64,8 +64,7 @@ def _generate_perms(
     # Start with a non-zero digit.
     # Always: Non-zero digit after an operator.
     # In the middle: anything after digit. at the end: end with a digit.
-    for char in (DIGITS1 if level >
-                 0 and prev_perm[-1] in OPERATIONS else after_digit_options):
+    for char in (DIGITS1 if level > 0 and prev_perm[-1] in OPERATIONS else after_digit_options):
         for answer in child_generator(
                 level + 1,
                 max_level,

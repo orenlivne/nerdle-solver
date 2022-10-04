@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Downloads human benchmark data using Selenium."""
+"""Web client for interactively solving the Nerdle game on nerdlegame.com."""
 import argparse
 import numpy as np
 import os
@@ -11,7 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
 import nerdle
-from score import OPERATIONS, EQUALS, Hint, HINT_STRING, hints_to_score, score_to_hint_string
+from nerdle.score import OPERATIONS, EQUALS, Hint, HINT_STRING, hints_to_score, score_to_hint_string
 
 
 # Send an expression.
@@ -175,7 +175,7 @@ def parse_args():
         help="Nerdle game website URL.")
     parser.add_argument(
         "--score_db",
-        default="db/nerdle8.db",
+        default=os.path.join(nerdle.DB_DIR, "nerdle8.db".format(num_slots)),
         help="Path to score database file name.")
     return parser.parse_args()
 
@@ -195,10 +195,10 @@ if __name__ == "__main__":
     driver = webdriver.Chrome(options=options)
 
     os.makedirs(os.path.dirname(args.score_db), exist_ok=True)
-    solver_data = nerdle.create_solver_data(NUM_SLOTS, args.score_db)
+    solver_data = solver.create_solver_data(NUM_SLOTS, args.score_db)
 
     client = NerdleClient(driver)
-    solver = nerdle.NerdleSolver(solver_data)
+    solver = solver.NerdleSolver(solver_data)
     success, guess_history, hint_history = client.play_game(
         solver, "https://nerdlegame.com", live=True)
 

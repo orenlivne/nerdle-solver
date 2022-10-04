@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-fPIC -std=c++17 -O2
-NAME=score_guess_opt
+NAME=score_guess
 SOURCES=$(NAME).cpp
 
 all: 
